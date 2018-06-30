@@ -1,0 +1,10 @@
+[ dog."tater.man" ]
+# 好きなようにコメントできます。
+test = "value"
+ "ke.y" = "value" # こんな感じで！
+
+[[fruit]]
+name = "apple"
+
+[[fruit]]
+name = "banana"

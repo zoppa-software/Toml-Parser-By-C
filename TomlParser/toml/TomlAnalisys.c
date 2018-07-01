@@ -160,6 +160,7 @@ static int toml_append_unicode(TomlBuffer * buffer,
 		}
 	}
 
+	// UTF8‚Ö•ÏŠ·
 	if (val < 0x80) {
 		v = val & 0xff;
 		toml_append_char(buffer->word_dst, v);

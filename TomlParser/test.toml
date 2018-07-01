@@ -1,7 +1,90 @@
+tab = "This string has a \t tab character."
+
+multiline_empty_four = """\
+   \
+   \
+   """
+multiline_empty_one = """"""
+multiline_empty_two = """
+"""
+multiline_empty_three = """\
+    """
+
+equivalent_one = "The quick brown fox jumps over the lazy dog."
+equivalent_two = """
+The quick brown \
+
+
+  fox jumps over \
+    the lazy dog."""
+
+equivalent_three = """\
+       The quick brown \
+       fox jumps over \
+       the lazy dog.\
+       """
+
+# 複合
+fnum9 = .0008
+fnum7 = 6.626e-34
+fnum8 = 9_224_617.445_991_228_313
+
+# 指数表記
+fnum4 = 5e+22
+fnum5 = 1e6
+fnum6 = -2E-2
+
+fnum1 = +1.0
+fnum2 = 3.1415
+fnum3 = -0.01
+
+num1 = +99
+num2 = 42
+num3 = 0
+num4 = -17
+num5 = 1_000
+num6 = 5_349_221
+num7 = 1_2_3_4_5
+
 [ dog."tater.man" ]
 # 好きなようにコメントできます。
 test = "value"
  "ke.y" = "value" # こんな感じで！
+key1 = """
+Roses are red
+Violets are blue"""
+
+key2 = "The quick brown fox jumps over the lazy dog."
+
+key3 = """
+The quick brown \
+
+
+fox jumps over \
+the lazy dog."""
+
+key4 = """\
+The quick brown \
+fox jumps over \
+the lazy dog.\
+"""
+
+# そのままの文字列を得ることが出来ます.
+winpath  = 'C:\Users\nodejs\templates'
+winpath2 = '\\ServerX\admin$\system32\'
+quoted   = 'Tom "Dubs" Preston-Werner'
+regex    = '<\i\c*\s*>'
+
+regex2 = '''I [dw]on't need \d{2} apples'''
+lines  = '''
+\abcd
+\efg
+\hijk
+\lmn
+'''
+
+true_value = true
+false_value = false
 
 [[fruit]]
 name = "apple"

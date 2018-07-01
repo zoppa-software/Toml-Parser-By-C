@@ -136,8 +136,8 @@ static int toml_append_unicode(TomlBuffer * buffer,
 							   size_t len)
 {
 	unsigned int	val = 0;
-	size_t	i;
-	TomlUtf8	c;
+	size_t			i;
+	TomlUtf8		c;
 	unsigned char	v;
 
 	// 16進数文字を判定し、数値化
@@ -160,23 +160,61 @@ static int toml_append_unicode(TomlBuffer * buffer,
 		}
 	}
 
-	// 数値化した値を文字として追加する
-	if (len == 4) {
-		v = (val >> 8) & 0xff;
-		toml_append_char(buffer->word_dst, v);
+	if (val < 0x80) {
 		v = val & 0xff;
 		toml_append_char(buffer->word_dst, v);
-	}
-	else {
-		v = (val >> 24) & 0xff;
+    }
+    else if (val < 0x800) {
+		v = (unsigned char)(0xc0 | (val >> 6));
 		toml_append_char(buffer->word_dst, v);
-		v = (val >> 16) & 0xff;
+		v = 0x80 | (val & 0x3f);
 		toml_append_char(buffer->word_dst, v);
-		v = (val >> 8) & 0xff;
+    }
+    else if (val < 0x10000) {
+		v = (unsigned char)(0xe0 | (val >> 12));
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 6) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | (val & 0x3f);
 		toml_append_char(buffer->word_dst, v);
-		v = val & 0xff;
+    }
+    else if (val < 0x200000) {
+		v = (unsigned char)(0xf0 | (val >> 18));
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 12) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 6) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | (val & 0x3f);
 		toml_append_char(buffer->word_dst, v);
-	}
+    }
+    else if (val < 0x4000000) {
+		v = 0xf8 | (val >> 24);
+		toml_append_char(buffer->word_dst, v);
+		v = 0x80 | ((val >> 18) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 12) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 6) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | (val & 0x3f);
+		toml_append_char(buffer->word_dst, v);
+    }
+    else {
+		v = 0xfc | (val >> 30);
+		toml_append_char(buffer->word_dst, v);
+		v = 0x80 | ((val >> 24) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 18) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 12) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | ((val >> 6) & 0x3f);
+		toml_append_char(buffer->word_dst, v); 
+		v = 0x80 | (val & 0x3f);
+		toml_append_char(buffer->word_dst, v);
+    }
+
 	return 1;
 }
 
@@ -218,7 +256,8 @@ int toml_get_key(TomlBuffer * buffer,
 		}
 		else if (c.num == '"' &&				// 3
 				 buffer->word_dst->length <= 0) {
-			if (!toml_get_string_value(buffer, i + 1, next_point)) {
+			if (!toml_get_string_value(buffer, i + 1, next_point) ||
+				buffer->word_dst->length < 1) {
 				return 0;
 			}
 			break;
@@ -227,8 +266,7 @@ int toml_get_key(TomlBuffer * buffer,
 			break;
 		}
 		else {
-			buffer->err_point = i;
-			return 1;
+			break;
 		}
 	}
 
@@ -327,7 +365,7 @@ int toml_get_string_value(TomlBuffer * buffer,
 			// " を取得したら文字列終了
 			toml_append_char(buffer->word_dst, '\0');
 			*next_point = i + 1;
-			return (buffer->word_dst->length > 1);
+			return (buffer->word_dst->length > 0);
 
 		case '\\':
 			// \のエスケープ文字判定
@@ -335,6 +373,7 @@ int toml_get_string_value(TomlBuffer * buffer,
 				buffer->err_point = i;
 				return 0;
 			}
+			break;
 
 		default:
 			// 上記以外は普通の文字として取得
@@ -377,7 +416,7 @@ static int toml_get_literal_string_value(TomlBuffer * buffer,
 			// ' を取得したら文字列終了
 			toml_append_char(buffer->word_dst, '\0');
 			*next_point = i + 1;
-			return (buffer->word_dst->length > 1);
+			return (buffer->word_dst->length > 0);
 
 		default:
 			// 上記以外は普通の文字として取得
@@ -433,6 +472,7 @@ static int toml_get_multi_string_value(TomlBuffer * buffer,
 	char		last_c[2];
 	int			skip_space = 0;
 	unsigned int	nx_c;
+	int			eof;
 
 	// 文字列バッファを消去
 	vec_clear(buffer->word_dst);
@@ -442,6 +482,8 @@ static int toml_get_multi_string_value(TomlBuffer * buffer,
 	i = remove_head_linefield(buffer, start);
 
 	do {
+		eof = toml_end_of_file(buffer);
+
 		for (; i < buffer->utf8s->length; ++i) {
 			// 一文字取得する
 			c = toml_get_char(buffer->utf8s, i);
@@ -453,7 +495,7 @@ static int toml_get_multi_string_value(TomlBuffer * buffer,
 					toml_get_char(buffer->utf8s, i + 1).num == '"') {
 					toml_append_char(buffer->word_dst, '\0');
 					*next_point = i + 3;
-					return (buffer->word_dst->length > 1);
+					return (buffer->word_dst->length > 0);
 				}
 				else {
 					toml_append_char(buffer->word_dst, '"');
@@ -475,7 +517,9 @@ static int toml_get_multi_string_value(TomlBuffer * buffer,
 			case ' ':
 			case '\t':
 				// 空白文字を追加する
-				vec_add(buffer->word_dst, c.ch);
+				if (!skip_space) {
+					vec_add(buffer->word_dst, c.ch);
+				}
 				break;
 
 			default:
@@ -506,7 +550,7 @@ static int toml_get_multi_string_value(TomlBuffer * buffer,
 		}
 		toml_read_buffer(buffer);
 
-	} while (!toml_end_of_file(buffer));
+	} while (!eof);
 
 	// " で終了できなかったためエラー
 	buffer->err_point = buffer->utf8s->length - 1;
@@ -527,6 +571,7 @@ static int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 {
 	size_t		i, j;
 	TomlUtf8	c;
+	int			eof;
 
 	// 文字列バッファを消去
 	vec_clear(buffer->word_dst);
@@ -535,6 +580,8 @@ static int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 	i = remove_head_linefield(buffer, start);
 
 	do {
+		eof = toml_end_of_file(buffer);
+
 		for (; i < buffer->utf8s->length; ++i) {
 			// 一文字取得する
 			c = toml_get_char(buffer->utf8s, i);
@@ -546,7 +593,7 @@ static int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 					toml_get_char(buffer->utf8s, i + 1).num == '\'') {
 					toml_append_char(buffer->word_dst, '\0');
 					*next_point = i + 3;
-					return (buffer->word_dst->length > 1);
+					return (buffer->word_dst->length > 0);
 				}
 				else {
 					toml_append_char(buffer->word_dst, '\'');
@@ -563,7 +610,7 @@ static int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 		}
 		toml_read_buffer(buffer);
 
-	} while (!toml_end_of_file(buffer));
+	} while (!eof);
 
 	// " で終了できなかったためエラー
 	buffer->err_point = buffer->utf8s->length - 1;
@@ -664,6 +711,7 @@ static size_t exponent_convert(TomlBuffer * buffer,
 /**
  * 数値（整数／実数）を取得する。
  *
+ * @param number_sign	符号。
  * @param buffer		読み込み領域。
  * @param start			開始位置。
  * @param next_point	終了位置（戻り値）
@@ -671,7 +719,8 @@ static size_t exponent_convert(TomlBuffer * buffer,
  * @param value_res		取得結果。
  * @return				取得できたら 0以外。
  */
-int toml_get_number_value(TomlBuffer * buffer,
+int toml_get_number_value(int number_sign,
+						  TomlBuffer * buffer,
 						  size_t point,
 						  size_t * next_point,
 						  TomlValueType * tokenType,
@@ -745,12 +794,26 @@ int toml_get_number_value(TomlBuffer * buffer,
 	if (digit < 0 && expo < 0) {
 		// 整数値を取得する
 		*tokenType = TomlIntegerValue;
-		if (v <= LONG_MAX) {
-			buffer->integer = (long long int)v;
+		if (number_sign) {
+			if (v <= LLONG_MAX) {
+				buffer->integer = -((long long int)v);
+			}
+			else {
+				buffer->integer = (long long int)v;
+				if (buffer->integer != LLONG_MIN) {
+					*value_res = INTEGER_VALUE_RANGE_ERR;
+					return 0;
+				}
+			}
 		}
 		else {
-			*value_res = INTEGER_VALUE_RANGE_ERR;
-			return 0;
+			if (v <= LLONG_MAX) {
+				buffer->integer = (long long int)v;
+			}
+			else {
+				*value_res = INTEGER_VALUE_RANGE_ERR;
+				return 0;
+			}
 		}
 	}
 	else {
@@ -779,7 +842,7 @@ int toml_get_number_value(TomlBuffer * buffer,
 			dv = (long double)v;	// 3
 		}
 		if (dv <= DBL_MAX) {		// 4
-			buffer->float_number = (double)dv;
+			buffer->float_number = (number_sign ? (double)-dv : (double)dv);
 		}
 		else {
 			*value_res = DOUBLE_VALUE_RANGE_ERR;
@@ -834,9 +897,11 @@ int toml_get_number_or_date_value(TomlBuffer * buffer,
 	}
 
 	// 数値（整数／実数）を取得する
-	return toml_get_number_value(buffer, point, next_point, tokenType, value_res);
+	return toml_get_number_value(0, buffer, point, next_point, tokenType, value_res);
 }
 
+/**
+ */
 int toml_convert_value(TomlBuffer * buffer,
 					   size_t point,
 					   size_t * next_point,
@@ -935,7 +1000,7 @@ int toml_convert_value(TomlBuffer * buffer,
 
 		case '+':
 			// 数値を取得する
-			if (toml_get_number_value(buffer, point + 1,
+			if (toml_get_number_value(0, buffer, point + 1,
 									  next_point, tokenType, value_res)) {
 				return 1;
 			}
@@ -948,26 +1013,9 @@ int toml_convert_value(TomlBuffer * buffer,
 			//
 			// 1. 整数値の符号を逆転させる
 			// 2. 実数値の符号を逆転させる
-			if (toml_get_number_value(buffer, point + 1,
+			if (toml_get_number_value(1, buffer, point + 1,
 									  next_point, tokenType, value_res)) {
-				switch (*tokenType) {
-				case TomlIntegerValue:		// 1
-					if (buffer->integer < LONG_MAX) {
-						buffer->integer = -buffer->integer;
-						return 1;
-					}
-					else {
-						*value_res = INTEGER_VALUE_RANGE_ERR;
-						return 0;
-					}
-
-				case TomlFloatValue:		// 2
-					buffer->float_number = -buffer->float_number;
-					return 1;
-
-				default:
-					return 0;
-				}
+				return 1;
 			}
 			else {
 				return 0;

@@ -109,6 +109,7 @@ static TomlTableArray * toml_create_table_array(TomlDocumentImpl * impl)
 	return res;
 }
 
+
 /**
  * •¶Žš—ñ‚ð•ÛŽ‚·‚éB
  *
@@ -118,7 +119,13 @@ static TomlTableArray * toml_create_table_array(TomlDocumentImpl * impl)
  */
 static char * toml_regist_string(TomlDocumentImpl * impl, TomlBuffer * buffer)
 {
-	return (char*)stringhash_add(impl->strings_cache, (char*)buffer->word_dst->pointer);
+	static char empty[] = { 0 };
+	if (buffer->word_dst->length > 1) {
+		return (char*)stringhash_add(impl->strings_cache, (char*)buffer->word_dst->pointer);
+	}
+	else {
+		return empty;
+	}
 }
 
 //-----------------------------------------------------------------------------

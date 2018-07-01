@@ -68,6 +68,6 @@ int toml_get_string_value(TomlBuffer * buffer, size_t start, size_t * next_point
 // */
 //int toml_get_number_value(TomlBuffer * buffer, size_t point, size_t * next_point, TomlValueType * tokenType);
 
-int toml_convert_value(TomlBuffer * buffer, size_t point, size_t * next_point, TomlValueType * tokenType);
+int toml_convert_value(TomlBuffer * buffer, size_t point, size_t * next_point, TomlValueType * tokenType, TomlResult * value_res);
 
 #endif /* __TOML_ANALISYS_H__ */

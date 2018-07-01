@@ -67,6 +67,42 @@ typedef enum _TomlResult
 	// テーブル配列構文エラー
 	TABLE_ARRAY_SYNTAX_ERR,
 
+	// 複数クォーテーション文字列定義エラー
+	MULTI_QUOAT_STRING_ERR,
+
+	// 複数リテラル文字列定義エラー
+	MULTI_LITERAL_STRING_ERR,
+
+	// 文字列定義エラー
+	QUOAT_STRING_ERR,
+
+	// リテラル文字列定義エラー
+	LITERAL_STRING_ERR,
+
+	// 整数値の範囲エラー
+	INTEGER_VALUE_RANGE_ERR,
+
+	// 数値定義に連続してアンダーバーが使用された
+	UNDERBAR_CONTINUE_ERR,
+
+	// 数値の先頭に無効な 0がある
+	ZERO_NUMBER_ERR,
+
+	// キーが再定義された
+	DEFINED_KEY_ERR,
+
+	// 無効な名称が指定された
+	INVALID_NAME_ERR,
+
+	// 複数の小数点が定義された
+	MULTI_DECIMAL_ERR,
+
+	// 実数の定義エラー
+	DOUBLE_VALUE_ERR,
+
+	// 実数値の範囲エラー
+	DOUBLE_VALUE_RANGE_ERR,
+
 } TomlResult;
 
 /**
@@ -99,14 +135,18 @@ typedef struct _TomlPair
 
 	// 値参照
 	// 1. 真偽値
-	// 2. 文字列
-	// 3. テーブル
-	// 4. テーブル配列
+	// 2. 整数値
+	// 3. 実数値
+	// 4. 文字列
+	// 5. テーブル
+	// 6. テーブル配列
 	union {
-		int					boolean;	// 1
-		const char *		string;		// 2
-		TomlTable *			table;		// 3
-		TomlTableArray *	tbl_array;	// 4
+		int					boolean;		// 1
+		long long int		integer;		// 2
+		double				float_number;	// 3
+		const char *		string;			// 4
+		TomlTable *			table;			// 5
+		TomlTableArray *	tbl_array;		// 6
 	} value;
 
 } TomlPair;

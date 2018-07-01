@@ -269,6 +269,8 @@ static TomlResult toml_analisys_key_and_value(TomlDocumentImpl * impl,
 	TomlValueType	type;
 	TomlPair *		pair;
 	const  char *	key_str;
+	TomlResult		value_res;
+	HashPair		val_pair;
 
 	// キー文字列を取得する
 	//
@@ -291,9 +293,9 @@ static TomlResult toml_analisys_key_and_value(TomlDocumentImpl * impl,
 	}
 
 	ptr = toml_skip_space(buffer->utf8s, ptr + 1);
-	if (!toml_convert_value(buffer, ptr, next_point, &type)) {	// 4
-		buffer->err_point = *next_point;
-		return KEY_VALUE_ERR;
+	if (!toml_convert_value(buffer, ptr,			// 4
+							next_point, &type, &value_res)) {
+		return value_res;
 	}
 
 	// キー／値のペアを格納する領域を取得
@@ -303,10 +305,12 @@ static TomlResult toml_analisys_key_and_value(TomlDocumentImpl * impl,
 	//
 	// 1. 真偽値
 	// 2. 文字列値
+	// 3. 整数値
+	// 4. 実数値
 	switch (type) {
 	case TomlBooleanValue:		// 1
 		pair->value_type = TomlBooleanValue;
-		pair->value.boolean = pair->value.boolean;
+		pair->value.boolean = buffer->boolean;
 		break;
 
 	case TomlStringValue:		// 2
@@ -314,13 +318,29 @@ static TomlResult toml_analisys_key_and_value(TomlDocumentImpl * impl,
 		pair->value.string = toml_regist_string(impl, buffer);
 		break;
 
+	case TomlIntegerValue:		// 3
+		pair->value_type = TomlIntegerValue;
+		pair->value.integer = buffer->integer;
+		break;
+
+	case TomlFloatValue:		// 4
+		pair->value_type = TomlFloatValue;
+		pair->value.float_number = buffer->float_number;
+		break;
+
 	default:
 		break;
 	}
 		
 	// テーブルに追加
-	hash_add(table->hash, &key_str, hash_value_of_pointer(pair));
-	return SUCCESS;
+	if (!hash_contains(table->hash, &key_str, &val_pair)) {
+		hash_add(table->hash, &key_str, hash_value_of_pointer(pair));
+		return SUCCESS;
+	}
+	else {
+		buffer->err_point = buffer->utf8s->length - 1;
+		return DEFINED_KEY_ERR;
+	}
 }
 
 /**
@@ -552,7 +572,7 @@ TomlResult toml_appendline(TomlDocumentImpl * impl, TomlBuffer * buffer)
 	TokenType	tkn_type;
 	TomlResult	res = SUCCESS;
 
-	// 文字分割を行う
+	// 一行のデータを取得する
 	toml_read_buffer(buffer);
 
 	// 行のデータ開始を判定する
@@ -608,14 +628,13 @@ TomlResult toml_read(TomlDocument * document, const char * path)
 {
 	TomlDocumentImpl * impl = (TomlDocumentImpl*)document;
 	TomlBuffer * buffer = toml_create_buffer(path);
-	size_t	i;
 
 	if (buffer == 0) {
 		fprintf(stderr, "ファイルオープンエラー\n");
 		return FAIL_OPEN_ERR;
 	}
 
-	for (i = 0; i < 20; ++i) {
+	do {
 		switch (toml_appendline(impl, buffer)) {
 		case FAIL_OPEN_ERR:
 			fprintf(stderr, "ファイルオープンエラー\n");
@@ -644,22 +663,54 @@ TomlResult toml_read(TomlDocument * document, const char * path)
 		case TABLE_ARRAY_SYNTAX_ERR:
 			fprintf(stderr, "テーブル配列構文の解析に失敗 : %s\n", toml_err_message(buffer));
 			goto EXIT_ANALISYS;
+
+		case MULTI_QUOAT_STRING_ERR:
+			fprintf(stderr, "複数クォーテーション文字列定義エラー : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case MULTI_LITERAL_STRING_ERR:
+			fprintf(stderr, "複数リテラル文字列定義エラー : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case QUOAT_STRING_ERR:
+			fprintf(stderr, "文字列定義エラー : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case LITERAL_STRING_ERR:
+			fprintf(stderr, "リテラル文字列定義エラー : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case INTEGER_VALUE_RANGE_ERR:
+			fprintf(stderr, "整数値が有効範囲を超えている : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case UNDERBAR_CONTINUE_ERR:
+			fprintf(stderr, "数値定義に連続してアンダーバーが使用された : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case ZERO_NUMBER_ERR:
+			fprintf(stderr, "数値の先頭に無効な 0がある : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case DEFINED_KEY_ERR:
+			fprintf(stderr, "キーが再定義された : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case MULTI_DECIMAL_ERR:
+			fprintf(stderr, "複数の小数点が定義された : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
+
+		case DOUBLE_VALUE_ERR:
+			fprintf(stderr, "実数の表現が範囲外 : %s\n", toml_err_message(buffer));
+			goto EXIT_ANALISYS;
 		}
 
 		vec_clear(buffer->utf8s);
 		vec_clear(buffer->key_ptr);
-	}
+	} while (!toml_end_of_file(buffer));
 
 EXIT_ANALISYS:;
 	toml_close_buffer(buffer);
-
-	{
-		HashPair pair;
-		const char * key;
-		stringhash_contains(impl->strings_cache, "ke.y", &key);
-		hash_contains(impl->table->hash, &key, &pair);
-		int a = 50;
-	}
 
 	return SUCCESS;
 }
@@ -681,6 +732,12 @@ static void toml_show_table_pair(HashPair pair)
 		break;
 	case TomlStringValue:
 		printf_s("%s: %s\n", *(char**)pair.key, obj->value.string);
+		break;
+	case TomlIntegerValue:
+		printf_s("%s: %lld\n", *(char**)pair.key, obj->value.integer);
+		break;
+	case TomlFloatValue:
+		printf_s("%s: %g\n", *(char**)pair.key, obj->value.float_number);
 		break;
 	case TomlTableValue:
 		printf_s("%s: {\n", *(char**)pair.key);

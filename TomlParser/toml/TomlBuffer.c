@@ -59,6 +59,17 @@ TomlBuffer * toml_create_buffer(const char * path)
 }
 
 /**
+ * ファイルの読み込みが終了していれば 0以外を返す。
+  *
+ * @param buffer	ファイルストリーム。
+ */
+int toml_end_of_file(TomlBuffer * buffer)
+{
+	TomlBufferImpl * impl = (TomlBufferImpl*)buffer;
+	return (feof(impl->fp) || ferror(impl->fp));
+}
+
+/**
  * 次に進めるバイト数を取得する（UTF8用）
  *
  * @param caractor	文字。

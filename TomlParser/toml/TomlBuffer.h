@@ -60,6 +60,13 @@ typedef union _TomlUtf8
 TomlBuffer * toml_create_buffer(const char * path);
 
 /**
+ * ファイルの読み込みが終了していれば 0以外を返す。
+  *
+ * @param buffer	ファイルストリーム。
+ */
+int toml_end_of_file(TomlBuffer * buffer);
+
+/**
  * 一行分の文字列を取り込む。
  *
  * @param buffer	ファイルストリーム。

@@ -26,7 +26,9 @@
     <ClCompile Include="helper\Vec.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="toml\Toml.c" />
-    <ClCompile Include="toml\TomlAnalisys.c" />
+    <ClCompile Include="toml\TomlParseHelper.c" />
+    <ClCompile Include="toml\TomlParseString.c" />
+    <ClCompile Include="toml\TomlParseValue.c" />
     <ClCompile Include="toml\TomlBuffer.c" />
   </ItemGroup>
   <ItemGroup>
@@ -37,7 +39,9 @@
     <ClInclude Include="helper\StringHash.h" />
     <ClInclude Include="helper\Vec.h" />
     <ClInclude Include="toml\Toml.h" />
-    <ClInclude Include="toml\TomlAnalisys.h" />
+    <ClInclude Include="toml\TomlParseHelper.h" />
+    <ClInclude Include="toml\TomlParseString.h" />
+    <ClInclude Include="toml\TomlParseValue.h" />
     <ClInclude Include="toml\TomlBuffer.h" />
   </ItemGroup>
   <ItemGroup>

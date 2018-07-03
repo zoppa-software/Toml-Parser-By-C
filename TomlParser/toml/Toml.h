@@ -4,6 +4,9 @@
 #include "../helper/Hash.h"
 #include "../helper/Vec.h"
 
+/** UTF8の文字数。 */
+#define UTF8_CHARCTOR_SIZE	6
+
 /**
  * 値の種類を表す列挙。
  */
@@ -38,7 +41,7 @@ typedef enum _TomlValueType
 /**
  * 読込結果列挙体
  */
-typedef enum _TomlResult
+typedef enum _TomlResultCode
 {
 	// 成功
 	SUCCESS,
@@ -103,7 +106,62 @@ typedef enum _TomlResult
 	// 実数値の範囲エラー
 	DOUBLE_VALUE_RANGE_ERR,
 
-} TomlResult;
+	// 日付書式の設定エラー
+	DATE_FORMAT_ERR,
+
+	// ユニコード文字定義エラー
+	UNICODE_DEFINE_ERR,
+
+	// 無効なエスケープ文字が指定された
+	INVALID_ESCAPE_CHAR_ERR,
+
+	// インラインテーブルが正しく閉じられていない
+	INLINE_TABLE_NOT_CLOSE_ERR,
+
+} TomlResultCode;
+
+/**
+ * 日付形式情報。
+ */
+typedef struct _TomlDate
+{
+	unsigned short		year;			// 年
+	unsigned char		month;			// 月
+	unsigned char		day;			// 日
+	unsigned char		hour;			// 時
+	unsigned char		minute;			// 分
+	unsigned char		second;			// 秒
+	unsigned int		dec_second;		// 秒の小数部
+	char				zone_hour;		// 時差（時間）
+	unsigned char		zone_minute;	// 時差（分）
+
+} TomlDate;
+
+/**
+ * UTF8文字。
+ */
+typedef union _TomlUtf8
+{
+	// 文字バイト
+	char	ch[UTF8_CHARCTOR_SIZE];
+
+	// 数値
+	unsigned int	num;
+
+} TomlUtf8;
+
+/**
+ * 読み込み結果詳細。
+ */
+typedef struct _TomlResultSummary
+{
+	TomlResultCode	code;	// 読み込み結果コード
+	Vec *	utf8s;			// UTF8文字列
+	Vec *	word_dst;		// 文字列バッファ
+	size_t	column;			// 列位置
+	size_t	row;			// 行位置
+
+} TomlResultSummary;
 
 /**
  * テーブル。
@@ -134,19 +192,14 @@ typedef struct _TomlPair
 	TomlValueType		value_type;
 
 	// 値参照
-	// 1. 真偽値
-	// 2. 整数値
-	// 3. 実数値
-	// 4. 文字列
-	// 5. テーブル
-	// 6. テーブル配列
 	union {
-		int					boolean;		// 1
-		long long int		integer;		// 2
-		double				float_number;	// 3
-		const char *		string;			// 4
-		TomlTable *			table;			// 5
-		TomlTableArray *	tbl_array;		// 6
+		int					boolean;		// 真偽値
+		long long int		integer;		// 整数値
+		double				float_number;	// 実数値
+		const char *		string;			// 文字列
+		TomlTable *			table;			// テーブル
+		TomlTableArray *	tbl_array;		// テーブル配列
+		TomlDate *			date;			// 日付
 	} value;
 
 } TomlPair;
@@ -181,27 +234,14 @@ void toml_dispose(TomlDocument ** document);
 //-----------------------------------------------------------------------------
 // 読込
 //-----------------------------------------------------------------------------
-///**
-// * Tomlドキュメントとして 1行読み込む。
-// *
-// * @param document		Tomlドキュメント。
-// * @param input			読込文字列。
-// * @param input_len		読込文字列長。
-// * @return				読込結果。
-// */
-//TomlReadState toml_readline(TomlDocument * document, const char * input, size_t input_len);
-//
-///**
-// * Tomlドキュメントの読み残しを読み込む。
-// *
-// * @param document		Tomlドキュメント。
-// * @param input			読込文字列。
-// * @param input_len		読込文字列長。
-// * @return				読込結果。
-// */
-//TomlReadState toml_appendline(TomlDocument * document, const char * input, size_t input_len);
-
-TomlResult toml_read(TomlDocument * document, const char * path);
+/**
+ * TOML形式のファイルを読み込む。
+ *
+ * @param document		Tomlドキュメント。
+ * @param path			ファイルパス。
+ * @return				読込結果。
+ */
+TomlResultCode toml_read(TomlDocument * document, const char * path);
 
 void toml_show(TomlDocument * document);
 

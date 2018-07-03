@@ -23,6 +23,9 @@ typedef struct _TomlBufferImpl
 	// 読み込み済みバイト数
 	size_t	readed;
 
+	// バッファの残量
+	size_t	rest_buf;
+
 } TomlBufferImpl;
 
 /** 空文字。 */
@@ -66,6 +69,9 @@ TomlBuffer * toml_create_buffer(const char * path)
 int toml_end_of_file(TomlBuffer * buffer)
 {
 	TomlBufferImpl * impl = (TomlBufferImpl*)buffer;
+	if (impl->rest_buf > 0) {
+		return 0;
+	}
 	return (feof(impl->fp) || ferror(impl->fp));
 }
 
@@ -135,9 +141,15 @@ void toml_read_buffer(TomlBuffer * buffer)
 	size_t		i, skip;
 	TomlUtf8	utf8;
 
-	while (!feof(impl->fp) && !ferror(impl->fp)) {
+	while (impl->rest_buf > 0 || !feof(impl->fp) && !ferror(impl->fp)) {
 		// バッファに文字列を取り込む
-		maxlen = toml_read_from_file(impl);
+		if (impl->rest_buf > 0) {
+			maxlen = impl->rest_buf;
+			impl->rest_buf = 0;
+		}
+		else {
+			maxlen = toml_read_from_file(impl);
+		}
 
 		for (i = 0, ptr = impl->readbf;
 					i < maxlen && *ptr != '\0'; ptr += skip, i += skip) {
@@ -160,6 +172,7 @@ void toml_read_buffer(TomlBuffer * buffer)
 							  impl->readbf + (i + 1),
 							  READ_BUF_SIZE - (i + 1));
 					impl->readed = maxlen - (i + 1);
+					impl->rest_buf = impl->readed;
 					impl->parent.loaded_line++;
 					goto LOOP_END;
 				}
@@ -190,45 +203,4 @@ void toml_close_buffer(TomlBuffer * buffer)
 	vec_delete(&impl->parent.word_dst);
 	vec_delete(&impl->parent.key_ptr);
 	free(buffer);
-}
-
-/**
- * 指定位置の文字を取得する。
- *
- * @param utf8s		文字列。
- * @param point		指定位置。
- * @return			取得した文字。
- */
-TomlUtf8 toml_get_char(Vec * utf8s, size_t point)
-{
-	if (point < utf8s->length) {
-		return VEC_GET(TomlUtf8, utf8s, point);
-	}
-	else {
-		return empty_char;
-	}
-}
-
-/**
- * エラーメッセージを取得する。
- *
- * @param buffer	読み込みバッファ。
- * @preturn			エラーメッセージ。
- */
-const char * toml_err_message(TomlBuffer * buffer)
-{
-	size_t		i, j;
-	TomlUtf8	c;
-
-	vec_clear(buffer->word_dst);
-
-	for (i = 0; i < buffer->utf8s->length && i <= buffer->err_point; ++i) {
-		c = toml_get_char(buffer->utf8s, i);
-		for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
-			vec_add(buffer->word_dst, c.ch + j);
-		}
-	}
-	vec_add(buffer->word_dst, &empty_char);
-
-	return (const char *)buffer->word_dst->pointer;
 }

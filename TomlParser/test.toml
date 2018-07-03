@@ -1,3 +1,7 @@
+answer8 = "\U000003B4"
+inline = { first = "Tom", last = "Preston-Werner" }
+
+bestdayever = 1987-07-05T17:45:00.123+07:00
 tab = "This string has a \t tab character."
 
 multiline_empty_four = """\

@@ -1,11 +1,10 @@
 #ifndef __TOML__BUFFERH__
 #define __TOML__BUFFERH__
 
-/** 読み込みバッファサイズ。 */
-#define READ_BUF_SIZE	8
+#include "Toml.h"
 
-/** UTF8の文字数。 */
-#define UTF8_CHARCTOR_SIZE	6
+/** 読み込みバッファサイズ。 */
+#define READ_BUF_SIZE	1024
 
 /**
  * 読み込み領域。
@@ -24,6 +23,12 @@ typedef struct _TomlBuffer
 	// 真偽値。
 	int		boolean;
 
+	// 日付情報。
+	TomlDate 	date;
+
+	// テーブル参照
+	TomlTable *	table;
+
 	// キー文字列バッファ
 	Vec *	key_ptr;
 
@@ -37,19 +42,6 @@ typedef struct _TomlBuffer
 	size_t	loaded_line;
 
 } TomlBuffer;
-
-/**
- * UTF8文字。
- */
-typedef union _TomlUtf8
-{
-	// 文字バイト
-	char	ch[UTF8_CHARCTOR_SIZE];
-
-	// 数値
-	unsigned int	num;
-
-} TomlUtf8;
 
 /**
  * ファイルストリームを作成する。
@@ -79,22 +71,5 @@ void toml_read_buffer(TomlBuffer * buffer);
  * @param buffer	ファイルストリーム。
  */
 void toml_close_buffer(TomlBuffer * buffer);
-
-/**
- * 指定位置の文字を取得する。
- *
- * @param utf8s		文字列。
- * @param point		指定位置。
- * @return			取得した文字。
- */
-TomlUtf8 toml_get_char(Vec * utf8s, size_t point);
-
-/**
- * エラーメッセージを取得する。
- *
- * @param buffer	読み込みバッファ。
- * @preturn			エラーメッセージ。
- */
-const char * toml_err_message(TomlBuffer * buffer);
 
 #endif /* __TOML__BUFFERH__ */

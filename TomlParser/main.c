@@ -12,7 +12,7 @@ int main(int argc, const char ** argv)
 	toml_show(toml);
 	toml_dispose(&toml);
 
-#if 1
+#if 0
 	printf_s("---- %s -----\n", "bool.toml");
 	toml = toml_initialize();
 	toml_read(toml, "tests\\bool.toml");
@@ -130,6 +130,36 @@ int main(int argc, const char ** argv)
 	printf_s("---- %s -----\n", "unicode-literal.toml");
 	toml = toml_initialize();
 	toml_read(toml, "tests\\unicode-literal.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-with-pound.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-with-pound.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-whitespace.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-whitespace.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-sub-empty.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-sub-empty.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-empty.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-empty.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "datetime.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\datetime.toml");
 	toml_show(toml);
 	toml_dispose(&toml);
 #endif

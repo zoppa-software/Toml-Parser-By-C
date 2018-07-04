@@ -29,6 +29,9 @@ typedef struct _TomlBuffer
 	// テーブル参照
 	TomlTable *	table;
 
+	// 配列参照
+	TomlArray * array;
+
 	// キー文字列バッファ
 	Vec *	key_ptr;
 

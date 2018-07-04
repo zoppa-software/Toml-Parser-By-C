@@ -202,8 +202,7 @@ static int append_escape_char(TomlBuffer * buffer,
  * @param start			開始位置。
  * @return				読み飛ばした位置。
  */
-static size_t remove_head_linefield(TomlBuffer * buffer,
-									size_t start)
+size_t toml_skip_head_linefield(TomlBuffer * buffer, size_t start)
 {
 	size_t i = start;
 	if (buffer->utf8s->length - i >= 2 &&
@@ -216,6 +215,46 @@ static size_t remove_head_linefield(TomlBuffer * buffer,
 		i += 1;
 	}
 	return i;
+}
+
+/**
+ * 改行、空白部を読み飛ばす。
+ *
+ * @param buffer		読み込み領域。
+ * @param start			開始位置。
+ * @return				読み飛ばした位置。
+ */
+size_t toml_skip_linefield_and_space(TomlBuffer * buffer, size_t start)
+{
+	TomlUtf8	c;
+	size_t		i;
+
+	do {
+		// 改行読み飛ばし
+		start = toml_skip_head_linefield(buffer, start);
+		if (start >= buffer->utf8s->length) {
+			toml_read_buffer(buffer);
+		}
+
+		// 空白部読み飛ばし
+		start = toml_skip_space(buffer->utf8s, start);
+
+		// 次の文字を取得
+		c = toml_get_char(buffer->utf8s, start);
+
+		// コメントを取得したら、改行コードまで読み飛ばす
+		if (c.num == '#') {
+			for (i = start + 1; i < buffer->utf8s->length; ++i) {
+				c = toml_get_char(buffer->utf8s, i);
+				if (c.num == '\n') {
+					start = i;
+					break;
+				}
+			}
+		}
+	} while (c.num == '\r' || c.num == '\n');
+
+	return start;
 }
 
 /**
@@ -351,10 +390,10 @@ int toml_get_string_value(TomlBuffer * buffer,
  * @param error			エラー詳細情報（戻り値）
  * @return				取得できたら 0以外。
  */
-int get_literal_string_value(TomlBuffer * buffer,
-							 size_t start,
-							 size_t * next_point,
-							 TomlResultSummary * error)
+int toml_get_literal_string_value(TomlBuffer * buffer,
+								  size_t start,
+								  size_t * next_point,
+								  TomlResultSummary * error)
 {
 	size_t		i, j;
 	TomlUtf8	c;
@@ -399,10 +438,10 @@ int get_literal_string_value(TomlBuffer * buffer,
  * @param error			エラー詳細情報（戻り値）
  * @return				取得できたら 0以外。
  */
-int get_multi_string_value(TomlBuffer * buffer,
-						   size_t start,
-						   size_t * next_point,
-						   TomlResultSummary * error)
+int toml_get_multi_string_value(TomlBuffer * buffer,
+								size_t start,
+								size_t * next_point,
+								TomlResultSummary * error)
 {
 	size_t		i, j;
 	TomlUtf8	c;
@@ -416,7 +455,7 @@ int get_multi_string_value(TomlBuffer * buffer,
 	memset(last_c, 0, sizeof(last_c));
 
 	// 先頭の改行は取り除く
-	i = remove_head_linefield(buffer, start);
+	i = toml_skip_head_linefield(buffer, start);
 
 	do {
 		eof = toml_end_of_file(buffer);
@@ -506,10 +545,10 @@ int get_multi_string_value(TomlBuffer * buffer,
  * @param error			エラー詳細情報（戻り値）
  * @return				取得できたら 0以外。
  */
-int get_multi_literal_string_value(TomlBuffer * buffer,
-								   size_t start,
-								   size_t * next_point,
-								   TomlResultSummary * error)
+int toml_get_multi_literal_string_value(TomlBuffer * buffer,
+										size_t start,
+										size_t * next_point,
+										TomlResultSummary * error)
 {
 	size_t		i, j;
 	TomlUtf8	c;
@@ -519,7 +558,7 @@ int get_multi_literal_string_value(TomlBuffer * buffer,
 	vec_clear(buffer->word_dst);
 
 	// 先頭の改行は取り除く
-	i = remove_head_linefield(buffer, start);
+	i = toml_skip_head_linefield(buffer, start);
 
 	do {
 		eof = toml_end_of_file(buffer);

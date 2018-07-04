@@ -112,7 +112,7 @@ static int exponent_convert(TomlBuffer * buffer,
 
 	// 小数点位置とマージ
 	exp_v -= (digit > 0 ? digit : 0);
-	if (exp_v > EXPO_MAX_RANGE || exp_v < -EXPO_MIN_RANGE) {
+	if (exp_v > EXPO_MAX_RANGE || exp_v < EXPO_MIN_RANGE) {
 		error->code = DOUBLE_VALUE_RANGE_ERR;
 		error->column = i;
 		error->row = buffer->loaded_line;
@@ -206,6 +206,13 @@ static int get_number_value(int number_sign,
 		else {
 			break;
 		}
+	}
+
+	// 一文字の数値もなければ None値を返す
+	if (i == point) {
+		*tokenType = TomlNoneValue;
+		*next_point = i;
+		return 1;
 	}
 
 	// 仮数部を取得する
@@ -590,7 +597,7 @@ int toml_convert_value(TomlBuffer * buffer,
 		if (toml_get_char(buffer->utf8s, point + 2).num == '"' &&
 			toml_get_char(buffer->utf8s, point + 1).num == '"' &&
 			toml_get_char(buffer->utf8s, point).num == '"') {
-			if (get_multi_string_value(buffer, point + 3, next_point, error)) {
+			if (toml_get_multi_string_value(buffer, point + 3, next_point, error)) {
 				*tokenType = TomlStringValue;
 				return 1;
 			}
@@ -603,7 +610,7 @@ int toml_convert_value(TomlBuffer * buffer,
 		if (toml_get_char(buffer->utf8s, point + 2).num == '\'' &&
 			toml_get_char(buffer->utf8s, point + 1).num == '\'' &&
 			toml_get_char(buffer->utf8s, point).num == '\'') {
-			if (get_multi_literal_string_value(buffer, point + 3, next_point, error)) {
+			if (toml_get_multi_literal_string_value(buffer, point + 3, next_point, error)) {
 				*tokenType = TomlStringValue;
 				return 1;
 			}
@@ -630,7 +637,7 @@ int toml_convert_value(TomlBuffer * buffer,
 
 		case '\'':
 			// リテラル文字列を取得する
-			if (get_literal_string_value(buffer, point + 1, next_point, error)) {
+			if (toml_get_literal_string_value(buffer, point + 1, next_point, error)) {
 				*tokenType = TomlStringValue;
 				return 1;
 			}

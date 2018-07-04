@@ -162,5 +162,77 @@ int main(int argc, const char ** argv)
 	toml_read(toml, "tests\\datetime.toml");
 	toml_show(toml);
 	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "array-empty.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\array-empty.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "array-nospaces.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\array-nospaces.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "arrays.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\arrays.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "arrays-hetergeneous.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\arrays-hetergeneous.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "arrays-nested.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\arrays-nested.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "comments-everywhere.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\comments-everywhere.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "empty.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\empty.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "example.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\example.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-array-implicit.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-array-implicit.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-array-many.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-array-many.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-array-nest.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-array-nest.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
+
+	printf_s("---- %s -----\n", "table-array-one.toml");
+	toml = toml_initialize();
+	toml_read(toml, "tests\\table-array-one.toml");
+	toml_show(toml);
+	toml_dispose(&toml);
 #endif
 }

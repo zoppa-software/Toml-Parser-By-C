@@ -185,7 +185,7 @@ void vec_remove_at(Vec * vector, size_t index)
 	else if (index == vec->vector.length - 1) {
 		// ÅŒã‚Ì—v‘f‚Ì‚Ýíœ‚·‚é
 #if _DEBUG
-		memset((char*)vec->vector.pointer + index, 0, vec->data_len);
+		memset((char*)vec->vector.pointer + vec->data_len * index, 0, vec->data_len);
 #endif
 		vec->vector.length--;
 	}

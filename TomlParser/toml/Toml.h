@@ -30,6 +30,9 @@ typedef enum _TomlValueType
 	// 日付
 	TomlDateValue,
 
+	// 配列
+	TomlArrayValue,
+
 	// テーブル
 	TomlTableValue,
 
@@ -118,6 +121,15 @@ typedef enum _TomlResultCode
 	// インラインテーブルが正しく閉じられていない
 	INLINE_TABLE_NOT_CLOSE_ERR,
 
+	// 配列が正しく閉じられていない
+	ARRAY_NOT_CLOSE_ERR,
+
+	// 空のカンマがある
+	EMPTY_COMMA_ERR,
+
+	// 配列内の値の型が異なる
+	ARRAY_VALUE_DIFFERENT_ERR,
+
 } TomlResultCode;
 
 /**
@@ -164,6 +176,16 @@ typedef struct _TomlResultSummary
 } TomlResultSummary;
 
 /**
+ * 配列。
+ */
+typedef struct _TomlArray
+{
+	// 配列
+	Vec *			array;
+
+} TomlArray;
+
+/**
  * テーブル。
  */
 typedef struct _TomlTable
@@ -184,7 +206,7 @@ typedef struct _TomlTableArray
 } TomlTableArray;
 
 /**
- * キー／値構造体。
+ * 値と値の型の構造体。
  */
 typedef struct _TomlPair
 {
@@ -199,6 +221,7 @@ typedef struct _TomlPair
 		const char *		string;			// 文字列
 		TomlTable *			table;			// テーブル
 		TomlTableArray *	tbl_array;		// テーブル配列
+		TomlArray *			array;			// 配列
 		TomlDate *			date;			// 日付
 	} value;
 

@@ -210,7 +210,6 @@ void hash_delete(const Hash ** ins_del)
 	*ins_del = 0;
 }
 
-
 //-----------------------------------------------------------------------------
 // 確認、追加、削除
 //-----------------------------------------------------------------------------
@@ -296,11 +295,13 @@ void hash_remove(const Hash * instance, const void * key)
 // デバッグ
 //-----------------------------------------------------------------------------
 /**
-* 管理している項目を画面に出力する。
-*
-* @param instance	対象ハッシュテーブル。
-*/
-void hash_show(const Hash * instance, hash_show_function show_function)
+ * 管理している項目を画面に出力する。
+ *
+ * @param instance			対象ハッシュテーブル。
+ * @param show_function		処理移譲関数ポインタ。
+ */
+void hash_show(const Hash * instance,
+			   hash_show_function show_function)
 {
 	HashImpl * impl = (HashImpl*)instance;
 	HashPair * ptr;
@@ -310,6 +311,29 @@ void hash_show(const Hash * instance, hash_show_function show_function)
 		 ptr < impl->tables + impl->capacity; ++ptr) {
 		if (ptr->key) {
 			show_function(*ptr);
+		}
+	}
+}
+
+/**
+ * 管理している項目を順に評価する。
+ *
+ * @param instance			対象ハッシュテーブル。
+ * @param for_function		処理移譲関数ポインタ。
+ * @param param				パラメータ。
+ */
+void hash_foreach(const Hash * instance,
+				  hash_for_function for_function,
+				  void * param)
+{
+	HashImpl * impl = (HashImpl*)instance;
+	HashPair * ptr;
+	
+	ptr = impl->tables;
+	for (ptr = impl->tables;
+		 ptr < impl->tables + impl->capacity; ++ptr) {
+		if (ptr->key) {
+			for_function(*ptr, param);
 		}
 	}
 }

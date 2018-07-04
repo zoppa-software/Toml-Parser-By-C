@@ -27,7 +27,7 @@
 typedef struct TomlDocumentImpl
 {
 	// キー／値ハッシュ
-	TomlTable *		table;
+	TomlTable *		root;
 
 	// テーブルキャッシュ
 	Instance	table_cache;
@@ -48,13 +48,13 @@ typedef struct TomlDocumentImpl
 	Vec *		array_list;
 
 	// カレントテーブル
-	TomlTable *		root;
+	TomlTable *		table;
 
 	// 文字列テーブル
 	const StringHash *	strings_cache;
 
-	// キー／値インスタンス
-	Instance	pair_cache;
+	// 値インスタンス
+	Instance	value_cache;
 
 	// 日付インスタンス
 	Instance	date_cache;
@@ -72,7 +72,7 @@ static int analisys_value(TomlDocumentImpl * impl,
 						  TomlBuffer * buffer,
 						  size_t point,
 						  size_t * next_point,
-						  TomlPair ** res_pair,
+						  TomlValue ** res_value,
 						  TomlResultSummary * error);
 
 //-----------------------------------------------------------------------------
@@ -134,7 +134,7 @@ static TomlTableArray * create_table_array(TomlDocumentImpl * impl)
 static TomlArray * create_array(TomlDocumentImpl * impl)
 {
 	TomlArray * res = instance_pop(&impl->array_cache);
-	res->array = vec_initialize(sizeof(TomlPair*));
+	res->array = vec_initialize(sizeof(TomlValue*));
 	vec_add(impl->array_list, &res);
 	return res;
 }
@@ -208,7 +208,7 @@ TomlDocument * toml_initialize()
 	res->date_cache = instance_initialize(sizeof(TomlDate), TABLE_BLOCK_SIZE);
 
 	res->strings_cache = stringhash_initialize();
-	res->pair_cache = instance_initialize(sizeof(TomlPair), TABLE_BLOCK_SIZE);
+	res->value_cache = instance_initialize(sizeof(TomlValue), TABLE_BLOCK_SIZE);
 
 	return (TomlDocument*)res;
 }
@@ -250,7 +250,7 @@ void toml_dispose(TomlDocument ** document)
 	instance_delete(&impl->date_cache);
 
 	stringhash_delete(&impl->strings_cache);
-	instance_delete(&impl->pair_cache);
+	instance_delete(&impl->value_cache);
 	
 	// インスタンスを解放する
 	free(impl);
@@ -441,10 +441,10 @@ static int check_array_value_type(TomlArray * array)
 	TomlValueType	type;
 
 	if (array->array->length > 0) {
-		type = VEC_GET(TomlPair*, array->array, 0)->value_type;
+		type = VEC_GET(TomlValue*, array->array, 0)->value_type;
 
 		for (i = 1; i < array->array->length; ++i) {
-			if (type != VEC_GET(TomlPair*, array->array, i)->value_type) {
+			if (type != VEC_GET(TomlValue*, array->array, i)->value_type) {
 				return 0;
 			}
 		}
@@ -473,21 +473,21 @@ static int get_value_array(TomlDocumentImpl * impl,
 	// ※※※※※※※※※※※※※※※※※※※※※※※※※※※※※※※※
 	TomlArray *	array = create_array(impl);
 	size_t		ptr = point;
-	TomlPair *	pair;
+	TomlValue *	value;
 
 	while (ptr < buffer->utf8s->length) {
 		// 改行、空白部を取り除く
 		ptr = toml_skip_linefield_and_space(buffer, ptr);
 
 		// 値を取り込む
-		if (!analisys_value(impl, buffer, ptr, next_point, &pair, error)) {
+		if (!analisys_value(impl, buffer, ptr, next_point, &value, error)) {
 			delete_array(impl, array);
 			return 0;
 		}
 
 		// 空値以外は取り込む
-		if (pair->value_type != TomlNoneValue) {
-			vec_add(array->array, &pair);
+		if (value->value_type != TomlNoneValue) {
+			vec_add(array->array, &value);
 		}
 
 		// 配列が閉じられているか確認
@@ -511,7 +511,7 @@ static int get_value_array(TomlDocumentImpl * impl,
 			}
 
 		case 2:							// 2
-			if (pair->value_type != TomlNoneValue) {
+			if (value->value_type != TomlNoneValue) {
 				ptr = *next_point;
 				break;
 			}
@@ -546,7 +546,7 @@ static int get_value_array(TomlDocumentImpl * impl,
  * @param buffer		読み込み領域。
  * @param point			開始位置。
  * @param next_point	終了位置（戻り値）
- * @param res_pair		取得した値（戻り値）
+ * @param res_value		取得した値（戻り値）
  * @param error			エラー詳細情報。
  * @return				正常に読み込めたならば 0以外。
  */
@@ -554,11 +554,11 @@ static int analisys_value(TomlDocumentImpl * impl,
 						  TomlBuffer * buffer,
 						  size_t point,
 						  size_t * next_point,
-						  TomlPair ** res_pair,
+						  TomlValue ** res_value,
 						  TomlResultSummary * error)
 {
 	TomlValueType		type;
-	TomlPair *			pair;
+	TomlValue *			value;
 	size_t				ptr;
 
 	// インラインテーブル、配列、日付の確認
@@ -588,52 +588,52 @@ static int analisys_value(TomlDocumentImpl * impl,
 	}
 
 	// キー／値のペアを格納する領域を取得
-	pair = instance_pop(&impl->pair_cache);
+	value = instance_pop(&impl->value_cache);
 
 	// 値を設定
 	switch (type) {
 	case TomlBooleanValue:			// 真偽値
-		pair->value_type = TomlBooleanValue;
-		pair->value.boolean = buffer->boolean;
+		value->value_type = TomlBooleanValue;
+		value->value.boolean = buffer->boolean;
 		break;
 
 	case TomlStringValue:			// 文字列値
-		pair->value_type = TomlStringValue;
-		pair->value.string = regist_string(impl, buffer);
+		value->value_type = TomlStringValue;
+		value->value.string = regist_string(impl, buffer);
 		break;
 
 	case TomlIntegerValue:			// 整数値
-		pair->value_type = TomlIntegerValue;
-		pair->value.integer = buffer->integer;
+		value->value_type = TomlIntegerValue;
+		value->value.integer = buffer->integer;
 		break;
 
 	case TomlFloatValue:			// 実数値
-		pair->value_type = TomlFloatValue;
-		pair->value.float_number = buffer->float_number;
+		value->value_type = TomlFloatValue;
+		value->value.float_number = buffer->float_number;
 		break;
 
 	case TomlDateValue:				// 日付
-		pair->value_type = TomlDateValue;
-		pair->value.date = (TomlDate*)instance_pop(&impl->date_cache);
-		*pair->value.date = buffer->date;
+		value->value_type = TomlDateValue;
+		value->value.date = (TomlDate*)instance_pop(&impl->date_cache);
+		*value->value.date = buffer->date;
 		break;
 
 	case TomlTableValue:			// インラインテーブル
-		pair->value_type = TomlTableValue;
-		pair->value.table = buffer->table;
+		value->value_type = TomlTableValue;
+		value->value.table = buffer->table;
 		break;
 
 	case TomlArrayValue:			// 配列
-		pair->value_type = TomlArrayValue;
-		pair->value.array = buffer->array;
+		value->value_type = TomlArrayValue;
+		value->value.array = buffer->array;
 		break;
 
 	default:						// 無効値
-		pair->value_type = TomlNoneValue;
+		value->value_type = TomlNoneValue;
 		break;
 	}
 
-	*res_pair = pair;
+	*res_value = value;
 	error->code = SUCCESS;
 	error->column = 0;
 	error->row = buffer->loaded_line;
@@ -658,7 +658,7 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 {
 	size_t				ptr;
 	TomlUtf8			c;
-	TomlPair *			pair;
+	TomlValue *			value;
 	const  char *		key_str;
 	HashPair			val_pair;
 	TomlResultSummary	res;
@@ -688,14 +688,14 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 	//
 	// 1. 値を解析する
 	// 2. キーが登録済みか確認する
-	if (analisys_value(impl, buffer, ptr + 1, next_point, &pair, &res)) {	// 1
-		if (pair->value_type == TomlNoneValue) {
+	if (analisys_value(impl, buffer, ptr + 1, next_point, &value, &res)) {	// 1
+		if (value->value_type == TomlNoneValue) {
 			res.code = KEY_VALUE_ERR;
 			res.column = ptr + 1;
 			res.row = buffer->loaded_line;
 		}
 		else if (!hash_contains(table->hash, &key_str, &val_pair)) {		// 2
-			hash_add(table->hash, &key_str, hash_value_of_pointer(pair));
+			hash_add(table->hash, &key_str, hash_value_of_pointer(value));
 			res.code = SUCCESS;
 			res.column = 0;
 			res.row = buffer->loaded_line;
@@ -726,7 +726,7 @@ static int search_path_table(TomlTable * table,
 							 TomlTable ** answer)
 {
 	HashPair		result;
-	TomlPair *		pair;
+	TomlValue *		value;
 
 	if (hash_contains(table->hash, &key_str, &result)) {
 		// 指定のキーが登録済みならば、紐付く項目を返す
@@ -734,17 +734,17 @@ static int search_path_table(TomlTable * table,
 		// 1. テーブルを返す
 		// 2. テーブル配列のテーブルを返す
 		// 3. テーブルの新規作成を依頼
-		pair = (TomlPair*)result.value.object;
-		switch (pair->value_type)
+		value = (TomlValue*)result.value.object;
+		switch (value->value_type)
 		{
 		case TomlTableValue:			// 1
-			*answer = pair->value.table;
+			*answer = value->value.table;
 			return 1;
 
 		case TomlTableArrayValue:		// 2
 			*answer = VEC_GET(TomlTable*,
-							  pair->value.tbl_array->tables,
-							  pair->value.tbl_array->tables->length - 1);
+							  value->value.tbl_array->tables,
+							  value->value.tbl_array->tables->length - 1);
 			return 1;
 
 		default:
@@ -776,7 +776,7 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 	size_t				i, nxt;
 	TomlTable *			cur_table = table;
 	TomlTable *			new_table;
-	TomlPair *			pair;
+	TomlValue *			value;
 	const char *		key_str;
 	TomlResultSummary	res;
 
@@ -809,10 +809,10 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 			break;
 		default:
 			new_table = create_table(impl);					// 3-3
-			pair = instance_pop(&impl->pair_cache);
-			pair->value_type = TomlTableValue;
-			pair->value.table = new_table;
-			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(pair));
+			value = instance_pop(&impl->value_cache);
+			value->value_type = TomlTableValue;
+			value->value.table = new_table;
+			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
 			cur_table = new_table;
 			break;
 		}
@@ -858,7 +858,7 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	size_t				i, j, nxt;
 	TomlTable *			cur_table = table;
 	TomlTable *			new_table;
-	TomlPair *			pair;
+	TomlValue *			value;
 	const char *		key_str;
 	TomlTableArray *	new_array;
 	HashPair			hash_pair;
@@ -915,10 +915,10 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 
 		default:
 			new_table = create_table(impl);								// 4
-			pair = instance_pop(&impl->pair_cache);
-			pair->value_type = TomlTableValue;
-			pair->value.table = new_table;
-			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(pair));
+			value = instance_pop(&impl->value_cache);
+			value->value_type = TomlTableValue;
+			value->value.table = new_table;
+			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
 			cur_table = new_table;
 			break;
 		}
@@ -937,10 +937,10 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	key_str = VEC_GET(const char*, buffer->key_ptr, buffer->key_ptr->length - 1);	// 1
 
 	if (hash_contains(cur_table->hash, &key_str, &hash_pair)) {			// 2-1
-		pair = (TomlPair*)hash_pair.value.object;
-		if (pair->value_type == TomlTableArrayValue) {					// 2-2
+		value = (TomlValue*)hash_pair.value.object;
+		if (value->value_type == TomlTableArrayValue) {					// 2-2
 			new_table = create_table(impl);
-			vec_add(pair->value.tbl_array->tables, &new_table);
+			vec_add(value->value.tbl_array->tables, &new_table);
 		}
 		else {
 			res.code = TABLE_REDEFINITION_ERR;							// 2-3
@@ -952,10 +952,10 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	}
 	else {
 		new_array = create_table_array(impl);							// 3-1
-		pair = instance_pop(&impl->pair_cache);
-		pair->value_type = TomlTableArrayValue;
-		pair->value.tbl_array = new_array;
-		hash_add(cur_table->hash, &key_str, hash_value_of_pointer(pair));
+		value = instance_pop(&impl->value_cache);
+		value->value_type = TomlTableArrayValue;
+		value->value.tbl_array = new_array;
+		hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
 
 		new_table = create_table(impl);									// 3-2
 		vec_add(new_array->tables, &new_table);
@@ -1180,11 +1180,66 @@ EXIT_ANALISYS:;
 }
 
 //-----------------------------------------------------------------------------
+// データアクセス
+//-----------------------------------------------------------------------------
+/**
+ * 繰返処理委譲関数ポインタ。
+ *
+ * @param pair	表示する項目。
+ * @param param	パラメータ。
+ */
+void table_for_function(HashPair pair, void * param)
+{
+	TomlBucket	bucket;
+	bucket.key_name = *((char**)pair.key);
+	bucket.ref_value = (TomlValue*)pair.value.object;
+
+	vec_add((Vec*)param, &bucket);
+}
+
+/**
+ * 指定テーブルのキーと値のリストを取得する。
+ *
+ * @param document	Tomlドキュメント。
+ * @param table		指定テーブル。
+ * @return			キーと値のリスト。
+ */
+TomlBuckets toml_collect_key_and_value(TomlTable * table)
+{
+	TomlBuckets		res;
+	Vec *			vec = vec_initialize_set_capacity(sizeof(TomlBucket), TABLE_BLOCK_SIZE);
+
+	hash_foreach(table->hash, table_for_function, vec);
+
+	res.length = vec->length;
+	res.values = (TomlBucket*)malloc(sizeof(TomlBucket) * res.length);
+	Assert(res.values != 0, "alloc error");
+	_RPTN(_CRT_WARN, "toml_collect_key_and_value malloc 0x%X\n", res);
+
+	memcpy((void *)res.values, vec->pointer, sizeof(TomlBucket) * res.length);
+	vec_delete(&vec);
+	return res;
+}
+
+/**
+ * 指定テーブルのキーと値のリストを削除する。
+ *
+ * @param list		キーと値のリスト。
+ */
+void toml_delete_key_and_value(TomlBuckets * list)
+{
+	if (list) {
+		free((void*)list->values);
+		list->values = 0;
+	}
+}
+
+//-----------------------------------------------------------------------------
 // デバッグ出力
 //-----------------------------------------------------------------------------
 static void toml_show_table(TomlTable * table);
 
-static void toml_show_pair(TomlPair * obj)
+static void toml_show_pair(TomlValue * obj)
 {
 	size_t	i;
 	TomlDate * date;
@@ -1227,7 +1282,7 @@ static void toml_show_pair(TomlPair * obj)
 	case TomlArrayValue:
 		printf_s("[");
 		for (i = 0; i < obj->value.array->array->length; ++i) {
-			toml_show_pair(VEC_GET(TomlPair*, obj->value.array->array, i));
+			toml_show_pair(VEC_GET(TomlValue*, obj->value.array->array, i));
 			printf_s(", ");
 		}
 		printf_s("]\n");
@@ -1239,7 +1294,7 @@ static void toml_show_pair(TomlPair * obj)
 
 static void toml_show_table_pair(HashPair pair)
 {
-	TomlPair * obj = (TomlPair*)pair.value.object;
+	TomlValue * obj = (TomlValue*)pair.value.object;
 	size_t	i;
 	TomlDate * date;
 
@@ -1282,7 +1337,7 @@ static void toml_show_table_pair(HashPair pair)
 	case TomlArrayValue:
 		printf_s("%s: [\n", *(char**)pair.key);
 		for (i = 0; i < obj->value.array->array->length; ++i) {
-			toml_show_pair(VEC_GET(TomlPair*, obj->value.array->array, i));
+			toml_show_pair(VEC_GET(TomlValue*, obj->value.array->array, i));
 			printf_s(", ");
 		}
 		printf_s("\n]\n");

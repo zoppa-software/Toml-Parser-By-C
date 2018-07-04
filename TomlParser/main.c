@@ -3,13 +3,17 @@
 #include <string.h>
 #include "toml/Toml.h"
 
+static void show_items(TomlTable * table);
+static void show_item(TomlBucket item);
+static void show_value(TomlValue * obj);
+
 int main(int argc, const char ** argv)
 {
 	TomlDocument * toml;
 
 	toml = toml_initialize();
 	toml_read(toml, "test.toml");
-	toml_show(toml);
+	show_items(toml->table);
 	toml_dispose(&toml);
 
 #if 0
@@ -235,4 +239,122 @@ int main(int argc, const char ** argv)
 	toml_show(toml);
 	toml_dispose(&toml);
 #endif
+}
+
+static void show_items(TomlTable * table)
+{
+	size_t		i;
+	TomlBuckets buckets = toml_collect_key_and_value(table);
+	for (i = 0; i < buckets.length; ++i) {
+		show_item(buckets.values[i]);
+	}
+	toml_delete_key_and_value(&buckets);
+}
+
+static void show_item(TomlBucket item)
+{
+	size_t	i;
+
+	switch (item.ref_value->value_type)
+	{
+	case TomlBooleanValue:
+		printf_s("%s: %s\n", item.key_name, item.ref_value->value.boolean ? "true" : "false");
+		break;
+	case TomlStringValue:
+		printf_s("%s: %s\n", item.key_name, item.ref_value->value.string);
+		break;
+	case TomlIntegerValue:
+		printf_s("%s: %lld\n", item.key_name, item.ref_value->value.integer);
+		break;
+	case TomlFloatValue:
+		printf_s("%s: %g\n", item.key_name, item.ref_value->value.float_number);
+		break;
+	case TomlDateValue:
+		{
+			TomlDate * date = item.ref_value->value.date;
+			printf_s("%s: %04d-%02d-%02d %02d:%02d:%02d.%d %02d:%02d\n",
+					item.key_name,
+					date->year, date->month, date->day,
+					date->hour, date->minute, date->second, date->dec_second,
+					date->zone_hour, date->zone_minute);
+		}
+		break;
+	case TomlTableValue:
+		printf_s("%s: {\n", item.key_name);
+		show_items(item.ref_value->value.table);
+		printf_s("}\n");
+		break;
+	case TomlTableArrayValue:
+		printf_s("%s: [\n", item.key_name);
+		for (i = 0; i < item.ref_value->value.tbl_array->tables->length; ++i) {
+			printf_s("{\n");
+			show_items(VEC_GET(TomlTable*, item.ref_value->value.tbl_array->tables, i));
+			printf_s("}\n");
+		}
+		printf_s("]\n");
+		break;
+	case TomlArrayValue:
+		printf_s("%s: [\n", item.key_name);
+		for (i = 0; i < item.ref_value->value.array->array->length; ++i) {
+			show_value(VEC_GET(TomlValue*, item.ref_value->value.array->array, i));
+			printf_s(", ");
+		}
+		printf_s("\n]\n");
+		break;
+	default:
+		break;
+	}
+}
+
+static void show_value(TomlValue * obj)
+{
+	size_t	i;
+	TomlDate * date;
+
+	switch (obj->value_type)
+	{
+	case TomlBooleanValue:
+		printf_s("%s", obj->value.boolean ? "true" : "false");
+		break;
+	case TomlStringValue:
+		printf_s("%s", obj->value.string);
+		break;
+	case TomlIntegerValue:
+		printf_s("%lld", obj->value.integer);
+		break;
+	case TomlFloatValue:
+		printf_s("%g", obj->value.float_number);
+		break;
+	case TomlDateValue:
+		date = obj->value.date;
+		printf_s("%04d-%02d-%02d %02d:%02d:%02d.%d %02d:%02d",
+				 date->year, date->month, date->day,
+				 date->hour, date->minute, date->second, date->dec_second,
+				 date->zone_hour, date->zone_minute);
+		break;
+	case TomlTableValue:
+		printf_s("{\n");
+		show_items(obj->value.table);
+		printf_s("}\n");
+		break;
+	case TomlTableArrayValue:
+		printf_s("[\n");
+		for (i = 0; i < obj->value.tbl_array->tables->length; ++i) {
+			printf_s("{\n");
+			show_items(VEC_GET(TomlTable*, obj->value.tbl_array->tables, i));
+			printf_s("}\n");
+		}
+		printf_s("]\n");
+		break;
+	case TomlArrayValue:
+		printf_s("[");
+		for (i = 0; i < obj->value.array->array->length; ++i) {
+			show_value(VEC_GET(TomlValue*, obj->value.array->array, i));
+			printf_s(", ");
+		}
+		printf_s("]\n");
+		break;
+	default:
+		break;
+	}
 }

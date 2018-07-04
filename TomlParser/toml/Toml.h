@@ -208,7 +208,7 @@ typedef struct _TomlTableArray
 /**
  * 値と値の型の構造体。
  */
-typedef struct _TomlPair
+typedef struct _TomlValue
 {
 	// 値の種類
 	TomlValueType		value_type;
@@ -225,7 +225,33 @@ typedef struct _TomlPair
 		TomlDate *			date;			// 日付
 	} value;
 
-} TomlPair;
+} TomlValue;
+
+/**
+ * キーと値のペア情報。
+ */
+typedef struct _TomlBucket
+{
+	// キー
+	const char *	key_name;
+
+	// 値
+	const TomlValue *	ref_value;
+
+} TomlBucket;
+
+/**
+ * キーと値のペア情報収集結果。
+ */
+typedef struct _TomlBackets
+{
+	// 収集数
+	size_t	length;
+
+	// 収集結果リスト
+	const TomlBucket *	values;
+
+} TomlBuckets;
 
 /**
  * Tomlドキュメント。
@@ -265,6 +291,24 @@ void toml_dispose(TomlDocument ** document);
  * @return				読込結果。
  */
 TomlResultCode toml_read(TomlDocument * document, const char * path);
+
+//-----------------------------------------------------------------------------
+// データアクセス
+//-----------------------------------------------------------------------------
+/**
+ * 指定テーブルのキーと値のリストを取得する。
+ *
+ * @param table		指定テーブル。
+ * @return			キーと値のリスト。
+ */
+TomlBuckets toml_collect_key_and_value(TomlTable * table);
+
+/**
+ * 指定テーブルのキーと値のリストを削除する。
+ *
+ * @param list		キーと値のリスト。
+ */
+void toml_delete_key_and_value(TomlBuckets * list);
 
 void toml_show(TomlDocument * document);
 

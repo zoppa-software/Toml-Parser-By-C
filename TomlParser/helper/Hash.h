@@ -127,9 +127,27 @@ typedef void(*hash_show_function)(HashPair pair);
 /**
  * 管理している項目を画面に出力する。
  *
- * @param instance	対象ハッシュテーブル。
+ * @param instance			対象ハッシュテーブル。
+ * @param show_function		処理移譲関数ポインタ。
  */
 void hash_show(const Hash * instance, hash_show_function show_function);
+
+/**
+ * 繰返処理委譲関数ポインタ。
+ *
+ * @param pair	表示する項目。
+ * @param param	パラメータ。
+ */
+typedef void(*hash_for_function)(HashPair pair, void * param);
+
+/**
+ * 管理している項目を順に評価する。
+ *
+ * @param instance			対象ハッシュテーブル。
+ * @param for_function		処理移譲関数ポインタ。
+ * @param param				パラメータ。
+ */
+void hash_foreach(const Hash * instance, hash_for_function for_function, void * param);
 
 //-----------------------------------------------------------------------------
 // 値変換

@@ -66,6 +66,9 @@ static int analisys_value(TomlDocumentImpl * impl,
 						  TomlValue ** res_value,
 						  TomlResultSummary * error);
 
+/** 空値。 */
+static TomlValue empty_value;
+
 //-----------------------------------------------------------------------------
 // 実体を取得、追加
 //-----------------------------------------------------------------------------
@@ -1143,6 +1146,14 @@ TomlResultCode toml_read(TomlDocument * document, const char * path)
 			case ARRAY_VALUE_DIFFERENT_ERR:
 				fprintf(stderr, "配列の値の型が異なる : %s\n", errmsg);
 				goto EXIT_ANALISYS;
+
+			case NO_LEADING_ZERO_ERR:
+				fprintf(stderr, "小数点の前に数値が入力されていない : %s\n", errmsg);
+				goto EXIT_ANALISYS;
+
+			case NO_LAST_ZERO_ERR:
+				fprintf(stderr, "小数点の後に数値が入力されていない : %s\n", errmsg);
+				goto EXIT_ANALISYS;
 			}
 		}
 
@@ -1211,3 +1222,30 @@ void toml_delete_key_and_value(TomlBuckets * list)
 	}
 }
 
+/**
+ * 指定したテーブルから、キーの値を取得する。
+ *
+ * @param document		Tomlドキュメント。
+ * @param table		検索するテーブル。
+ * @param key		検索するキー。
+ * @return			取得した値。
+ */
+TomlValue toml_search_key(TomlDocument * document, TomlTable * table, const char * key)
+{
+	TomlDocumentImpl * impl = (TomlDocumentImpl*)document;
+	const char * reg_key = 0;
+	HashPair	result;
+
+	if (*key == 0) {
+		return empty_value;
+	}
+	else {
+		reg_key = stringhash_add(impl->strings_cache, key);
+		if (hash_contains(table->hash, &reg_key, &result)) {
+			return *((TomlValue*)result.value.object);
+		}
+		else {
+			return empty_value;
+		}
+	}
+}

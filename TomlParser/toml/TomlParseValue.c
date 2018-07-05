@@ -151,6 +151,7 @@ static int get_number_value(int number_sign,
 	int				expo = -1;
 	int				exp_v = -1;
 	double long		dv;
+	int				ld_zero = 0, lst_zero = 0;
 
 	// ‰¼”•”‚ğæ“¾‚·‚é
 	for (i = point; i < buffer->utf8s->length; ++i) {
@@ -175,7 +176,13 @@ static int get_number_value(int number_sign,
 		else if (c.num >= '0' && c.num <= '9') {
 			if (v < ULLONG_MAX / 10) {			// 2
 				v = v * 10 + (c.num - '0');
-				if (digit >= 0) { digit++; }
+				if (digit >= 0) {
+					digit++;
+					lst_zero = 1;
+				}
+				else {
+					ld_zero = 1;
+				}
 			}
 			else {								// 2-1
 				error->code = INTEGER_VALUE_RANGE_ERR;
@@ -187,11 +194,11 @@ static int get_number_value(int number_sign,
 			ud = 0;
 		}
 		else if (c.num == '.') {				// 3
-			if (digit < 0) {
+			if (ld_zero && digit < 0) {
 				digit = 0;
 			}
 			else {
-				error->code = MULTI_DECIMAL_ERR;
+				error->code = (ld_zero ? MULTI_DECIMAL_ERR : NO_LEADING_ZERO_ERR);
 				error->column = i;
 				error->row = buffer->loaded_line;
 				*next_point = i;
@@ -239,7 +246,6 @@ static int get_number_value(int number_sign,
 					error->code = INTEGER_VALUE_RANGE_ERR;
 					error->column = i;
 					error->row = buffer->loaded_line;
-					*next_point = i;
 					return 0;
 				}
 			}
@@ -252,12 +258,18 @@ static int get_number_value(int number_sign,
 				error->code = INTEGER_VALUE_RANGE_ERR;
 				error->column = i;
 				error->row = buffer->loaded_line;
-				*next_point = i;
 				return 0;
 			}
 		}
 	}
 	else {
+		if (digit >= 0 && !lst_zero) {
+			error->code = NO_LAST_ZERO_ERR;
+			error->column = i;
+			error->row = buffer->loaded_line;
+			return 0;
+		}
+
 		// À”’l‚ğæ“¾‚·‚é
 		//
 		// 1. À”’l‚ğ•Ô‚·‚±‚Æ‚ğw’è
@@ -290,12 +302,10 @@ static int get_number_value(int number_sign,
 			error->code = DOUBLE_VALUE_RANGE_ERR;
 			error->column = i;
 			error->row = buffer->loaded_line;
-			*next_point = i;
 			return 0;
 		}
 	}
 
-	*next_point = i;
 	return 1;
 }
 

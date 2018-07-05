@@ -11,16 +11,19 @@ static void show_value(TomlValue * obj);
 
 int main(int argc, const char ** argv)
 {
-	test_tml("key-open-bracket.toml");
-
-#if 0
+#if 1
 	TomlDocument * toml = toml_initialize();
+	TomlValue	v;
 	toml_read(toml, "test.toml");
 	show_items(toml->table);
+
+	v = toml_search_key(toml, toml->table, "title");
+	printf_s("[ title = %s ]", v.value.string);
+
 	toml_dispose(&toml);
 #endif
 
-#if 0
+#if 1
 	suc_tml("bool.toml");
 	suc_tml("float.toml");
 	suc_tml("implicit-and-explicit-after.toml");
@@ -73,8 +76,8 @@ int main(int argc, const char ** argv)
 	test_tml("duplicate-tables.toml");
 	test_tml("empty-implicit-table.toml");
 	test_tml("empty-table.toml");
-	//test_tml("float-no-leading-zero.toml");
-	//test_tml("float-no-trailing-digits.toml");
+	test_tml("float-no-leading-zero.toml");
+	test_tml("float-no-trailing-digits.toml");
 	test_tml("key-empty.toml");
 	test_tml("key-hash.toml");
 	test_tml("key-newline.toml");

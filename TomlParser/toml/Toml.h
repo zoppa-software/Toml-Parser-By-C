@@ -130,6 +130,12 @@ typedef enum _TomlResultCode
 	// 配列内の値の型が異なる
 	ARRAY_VALUE_DIFFERENT_ERR,
 
+	// 小数点の前に数値がない
+	NO_LEADING_ZERO_ERR,
+
+	// 小数点の後に数値がない
+	NO_LAST_ZERO_ERR,
+
 } TomlResultCode;
 
 /**
@@ -312,5 +318,15 @@ TomlBuckets toml_collect_key_and_value(TomlTable * table);
  * @param list		キーと値のリスト。
  */
 void toml_delete_key_and_value(TomlBuckets * list);
+
+/**
+ * 指定したテーブルから、キーの値を取得する。
+ *
+ * @param document	Tomlドキュメント。
+ * @param table		検索するテーブル。
+ * @param key		検索するキー。
+ * @return			取得した値。
+ */
+TomlValue toml_search_key(TomlDocument * impl, TomlTable * table, const char * key);
 
 #endif /*  __TOML_H__ */

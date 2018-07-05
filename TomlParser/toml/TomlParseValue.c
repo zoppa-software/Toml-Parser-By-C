@@ -477,7 +477,8 @@ static int convert_date_format(TomlBuffer * buffer,
 	// 'T' ‚Ìw’è‚ª‚È‚¯‚ê‚Î“ú‚É‚¿‚Ì‚İAI—¹
 	c = toml_get_char(buffer->utf8s, point + 10);
 	*next_point = point + 10;
-	if (c.num != 'T' && c.num != 't') {
+	if (c.num != 'T' && c.num != 't' &&
+		(c.num == ' ' || c.num == '\t' || c.num == '#')) {
 		return 1;
 	}
 

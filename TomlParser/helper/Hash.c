@@ -202,11 +202,12 @@ void hash_delete(const Hash ** ins_del)
 	HashImpl ** impl = (HashImpl**)ins_del;
 
 	Assert(ins_del != 0, "null pointer del error");
+	if (*impl) {
+		instance_delete(&(*impl)->key_instance);
 
-	instance_delete(&(*impl)->key_instance);
-
-	free((void*)(*impl)->tables);
-	free(*impl);
+		free((void*)(*impl)->tables);
+		free(*impl);
+	}
 	*ins_del = 0;
 }
 

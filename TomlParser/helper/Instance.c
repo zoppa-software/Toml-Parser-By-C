@@ -42,6 +42,28 @@ void instance_delete(Instance * ins_del)
 }
 
 /**
+ * インスタンス管理機能を削除する。
+ *
+ * @param ins_del		削除する管理機能。
+ * @param build_action	デストラクタアクション。
+ */
+void instance_delete_all_destructor(Instance * ins_del,
+									instance_build_function build_action)
+{
+	int		i, j;
+
+	// 枝要素解放
+	for (i = 0; i < ins_del->entities.block_count; ++i) {
+		for (j = 0; j < ins_del->block_size; ++j) {
+			build_action((char*)ins_del->entities.block[i] + (ins_del->data_len * j));
+		}
+		free(ins_del->entities.block[i]);
+	}
+	free(ins_del->entities.block);
+	free(ins_del->stack.cache);
+}
+
+/**
 * インスタンス管理機能にデータを返す。
 *
 * @param instance		インスタンス管理機能。
@@ -60,19 +82,7 @@ void instance_push(Instance * instance, void * item)
 */
 void * instance_pop(Instance * instance)
 {
-	void * ans;
-
-	// 余っていなければ枝要素を追加
-	if (instance->stack.count <= 0) {
-		instance_append(instance);
-	}
-
-	// スタックから取得
-	instance->stack.count--;
-	ans = instance->stack.cache[instance->stack.count];
-	instance->stack.cache[instance->stack.count] = 0;
-
-	return ans;
+	return instance_pop_constructor(instance, 0);
 }
 
 /**
@@ -99,6 +109,7 @@ void instance_append(Instance * instance)
 	newins = (char*)malloc(instance->data_len * instance->block_size);				// 2
 	Assert(newins != 0, "instance add error");
 	_RPTN(_CRT_WARN, "instance_append malloc 2 0x%X\n", newins);
+	memset(newins, 0, instance->data_len * instance->block_size);
 	temp[instance->entities.block_count] = newins;
 
 	free(instance->entities.block);													// 3
@@ -123,4 +134,46 @@ void instance_append(Instance * instance)
 	for (i = 0; i < instance->block_size; ++i) {
 		instance_push(instance, newins + (instance->data_len * i));
 	}
+}
+
+/**
+ * インスタンス管理機能からデータを取得する（コンストラクタ実行）
+ *
+ * @param instance		インスタンス管理機能。
+ * @param build_action	コンストラクタアクション。
+ * @return				データ。
+ */
+void * instance_pop_constructor(Instance * instance, instance_build_function build_action)
+{
+	void * ans;
+
+	// 余っていなければ枝要素を追加
+	if (instance->stack.count <= 0) {
+		instance_append(instance);
+	}
+
+	// スタックから取得
+	instance->stack.count--;
+	ans = instance->stack.cache[instance->stack.count];
+	instance->stack.cache[instance->stack.count] = 0;
+
+	// コンストラクタ実行
+	if (build_action != 0) {
+		build_action(ans);
+	}
+
+	return ans;
+}
+
+/**
+ * インスタンス管理機能にデータを返す（デストラクタ実行）
+ *
+ * @param instance		インスタンス管理機能。
+ * @param item			返すデータ。
+ * @param build_action	デストラクタアクション。
+ */
+void instance_push_destructor(Instance * instance, void * item, instance_build_function build_action)
+{
+	build_action(item);
+	instance->stack.cache[instance->stack.count++] = item;
 }

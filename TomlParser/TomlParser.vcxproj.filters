@@ -33,13 +33,19 @@
     <ClCompile Include="toml\Toml.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="toml\TomlAnalisys.c">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="toml\TomlBuffer.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="main.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="toml\TomlParseHelper.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="toml\TomlParseValue.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="toml\TomlParseString.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -65,10 +71,16 @@
     <ClInclude Include="toml\Toml.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="toml\TomlAnalisys.h">
+    <ClInclude Include="toml\TomlBuffer.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="toml\TomlBuffer.h">
+    <ClInclude Include="toml\TomlParseHelper.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="toml\TomlParseValue.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="toml\TomlParseString.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

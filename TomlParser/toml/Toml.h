@@ -193,6 +193,9 @@ typedef struct _TomlTable
 	// キー／値ハッシュ
 	const Hash *	hash;
 
+	// 定義済みならば 0以外
+	int		defined;
+
 } TomlTable;
 
 /**
@@ -309,7 +312,5 @@ TomlBuckets toml_collect_key_and_value(TomlTable * table);
  * @param list		キーと値のリスト。
  */
 void toml_delete_key_and_value(TomlBuckets * list);
-
-void toml_show(TomlDocument * document);
 
 #endif /*  __TOML_H__ */

@@ -48,6 +48,9 @@
     <ClCompile Include="toml\TomlParseString.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="helper\Encoding_utf8_to_cp932.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="helper\Array.h">
@@ -81,6 +84,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="toml\TomlParseString.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="helper\Encoding.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

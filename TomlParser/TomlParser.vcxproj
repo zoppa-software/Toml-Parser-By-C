@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="helper\Array.c" />
+    <ClCompile Include="helper\Encoding_utf8_to_cp932.c" />
     <ClCompile Include="helper\Hash.c" />
     <ClCompile Include="helper\Instance.c" />
     <ClCompile Include="helper\StringHash.c" />
@@ -34,6 +35,7 @@
   <ItemGroup>
     <ClInclude Include="helper\Array.h" />
     <ClInclude Include="helper\Assertion.h" />
+    <ClInclude Include="helper\Encoding.h" />
     <ClInclude Include="helper\Hash.h" />
     <ClInclude Include="helper\Instance.h" />
     <ClInclude Include="helper\StringHash.h" />

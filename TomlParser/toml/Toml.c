@@ -1230,17 +1230,23 @@ void toml_delete_key_and_value(TomlBuckets * list)
  * @param key		検索するキー。
  * @return			取得した値。
  */
-TomlValue toml_search_key(TomlDocument * document, TomlTable * table, const char * key)
+TomlValue toml_search_key(TomlDocument * document,
+						  TomlTable * table,
+						  const char * key)
 {
 	TomlDocumentImpl * impl = (TomlDocumentImpl*)document;
 	const char * reg_key = 0;
 	HashPair	result;
 
 	if (*key == 0) {
+		// 空白文字を返す
 		return empty_value;
 	}
 	else {
+		// キー文字列を返す
 		reg_key = stringhash_add(impl->strings_cache, key);
+
+		// 値を返す
 		if (hash_contains(table->hash, &reg_key, &result)) {
 			return *((TomlValue*)result.value.object);
 		}

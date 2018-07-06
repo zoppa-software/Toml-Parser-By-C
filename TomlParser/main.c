@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "toml/Toml.h"
+#include "helper/Encoding.h"
 
 static void suc_tml(const char * path);
 static void test_tml(const char * path);
@@ -14,16 +15,18 @@ int main(int argc, const char ** argv)
 #if 1
 	TomlDocument * toml = toml_initialize();
 	TomlValue	v;
+	char buf[128];
+
 	toml_read(toml, "test.toml");
 	show_items(toml->table);
 
 	v = toml_search_key(toml, toml->table, "title");
-	printf_s("[ title = %s ]", v.value.string);
+	printf_s("[ title = %s ]\n", encoding_utf8_to_cp932(v.value.string, buf, sizeof(buf)));
 
 	toml_dispose(&toml);
 #endif
 
-#if 1
+#if 0
 	suc_tml("bool.toml");
 	suc_tml("float.toml");
 	suc_tml("implicit-and-explicit-after.toml");
@@ -63,7 +66,7 @@ int main(int argc, const char ** argv)
 	suc_tml("table-array-one.toml");
 #endif
 
-#if 1
+#if 0
 	test_tml("array-mixed-types-arrays-and-ints.toml");
 	test_tml("array-mixed-types-ints-and-floats.toml");
 	test_tml("array-mixed-types-strings-and-ints.toml");
@@ -82,6 +85,28 @@ int main(int argc, const char ** argv)
 	test_tml("key-hash.toml");
 	test_tml("key-newline.toml");
 	test_tml("key-open-bracket.toml");
+	test_tml("key-single-open-bracket.toml");
+	test_tml("key-space.toml");
+	test_tml("key-start-bracket.toml");
+	test_tml("key-two-equals.toml");
+	test_tml("string-bad-byte-escape.toml");
+	test_tml("string-bad-escape.toml");
+	test_tml("string-byte-escapes.toml");
+	test_tml("string-no-close.toml");
+	test_tml("table-array-implicit.toml");
+	test_tml("table-array-malformed-bracket.toml");
+	test_tml("table-array-malformed-empty.toml");
+	test_tml("table-empty.toml");
+	test_tml("table-nested-brackets-close.toml");
+	test_tml("table-nested-brackets-open.toml");
+	test_tml("table-whitespace.toml");
+	test_tml("table-with-pound.toml");
+	test_tml("text-after-array-entries.toml");
+	test_tml("text-after-integer.toml");
+	test_tml("text-after-string.toml");
+	test_tml("text-after-table.toml");
+	test_tml("text-before-array-separator.toml");
+	test_tml("text-in-array.toml");
 #endif
 }
 
@@ -124,6 +149,7 @@ static void show_items(TomlTable * table)
 static void show_item(TomlBucket item)
 {
 	size_t	i;
+	char	buf[256];
 
 	switch (item.ref_value->value_type)
 	{
@@ -131,7 +157,7 @@ static void show_item(TomlBucket item)
 		printf_s("%s: %s\n", item.key_name, item.ref_value->value.boolean ? "true" : "false");
 		break;
 	case TomlStringValue:
-		printf_s("%s: %s\n", item.key_name, item.ref_value->value.string);
+		printf_s("%s: %s\n", item.key_name, encoding_utf8_to_cp932(item.ref_value->value.string, buf, sizeof(buf)));
 		break;
 	case TomlIntegerValue:
 		printf_s("%s: %lld\n", item.key_name, item.ref_value->value.integer);
@@ -180,6 +206,7 @@ static void show_value(TomlValue * obj)
 {
 	size_t	i;
 	TomlDate * date;
+	char	buf[256];
 
 	switch (obj->value_type)
 	{
@@ -187,7 +214,7 @@ static void show_value(TomlValue * obj)
 		printf_s("%s", obj->value.boolean ? "true" : "false");
 		break;
 	case TomlStringValue:
-		printf_s("%s", obj->value.string);
+		printf_s("%s", encoding_utf8_to_cp932(obj->value.string, buf, sizeof(buf)));
 		break;
 	case TomlIntegerValue:
 		printf_s("%lld", obj->value.integer);

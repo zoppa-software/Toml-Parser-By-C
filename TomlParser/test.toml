@@ -1,6 +1,6 @@
 # This is a TOML document.
 
-title = "TOML Example"
+title = "TOMLサンプル"
 
 [owner]
 name = "Tom Preston-Werner"

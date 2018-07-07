@@ -21,6 +21,10 @@
  * hash_remove(hash, "HIJK");							// 項目の存在確認
  *
  * hash_delete(&hash);									// ハッシュテーブルの削除
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
  */
 
 //-----------------------------------------------------------------------------

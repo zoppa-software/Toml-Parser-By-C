@@ -1,6 +1,12 @@
 #ifndef __TOML_PARSE_VALUE_H__
 #define __TOML_PARSE_VALUE_H__
 
+/**
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
+ */
+
 // w”•”Å‘å’l
 #define EXPO_MAX_RANGE		308
 

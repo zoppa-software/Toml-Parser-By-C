@@ -6,7 +6,7 @@
  *
  * const StringHash * hash = stringhash_initialize();	// ハッシュテーブルの作成
  *
- * stringhash_add(hash, "北海道 札幌市");				// ハッシュテーブルに項目を追加
+ * stringhash_add(hash, "北海道 札幌市");					// ハッシュテーブルに項目を追加
  *
  * const char * key;									// 存在確認
  * if (stringhash_contains(hash, "熊本県 南小国町", &key)) {
@@ -16,6 +16,10 @@
  * stringhash_remove(hash, "熊本県 南小国町");			// 項目削除
  *
  * stringhash_delete(&hash);							// 最後は解放してください
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
  */
 
 /**

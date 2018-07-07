@@ -11,6 +11,10 @@
  * ARRAY_GET(int, num, 2) = 2;
  * ARRAY_GET(int, num, 3) = 3;
  * ARRAY_GET(int, num, 4) = 4;
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
  */
 
 /**

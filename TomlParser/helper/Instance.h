@@ -11,6 +11,10 @@
  * instance_push(&instance, data);			// 使い終わった実体は管理機能に返すこと
  *
  * instance_delete(&instance);				// 最後に解放してください
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
  */
 
 /**

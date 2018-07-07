@@ -3,3 +3,7 @@
 ################################################################################
 
 /.vs/TomlParser/v15
+/TomlParser/Debug/TomlParser.tlog
+/TomlParser/x64/Debug
+/x64/Debug
+/TomlParser/Debug

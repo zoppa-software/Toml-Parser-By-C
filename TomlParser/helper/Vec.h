@@ -18,6 +18,10 @@
  * vec_remove_at(vec, 98);
  * 
  * vec_delete(&vec);							// ‰ğ•ú‚ğ–Y‚ê‚¸‚É
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
  */
 
 // L’£‚·‚éÅ‘å’·

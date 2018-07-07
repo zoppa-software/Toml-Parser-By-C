@@ -1,6 +1,14 @@
 #ifndef __TOML_H__
 #define __TOML_H__
 
+/**
+ *
+ *
+ * Copyright (c) 2018 Takashi Zota
+ * Released under the MIT license
+ * https://opensource.org/licenses/mit-license.php
+ */
+
 #include "../helper/Hash.h"
 #include "../helper/Vec.h"
 

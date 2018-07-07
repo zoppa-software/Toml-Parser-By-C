@@ -5,13 +5,14 @@
 #include "Encoding.h"
 
 /**
+ * 検索テーブル下位テーブル値
  */
 typedef struct _ToCp932Table
 {
-	//
+	// インデックス
 	unsigned char	index;
 
-	//
+	// 文字コード（cp932）
 	unsigned short	code;
 
 } ToCp932Table; 
@@ -1493,6 +1494,7 @@ static ToCp932Table tbl_189[] = {
     {21,  0x00d5}, {0,   0x0000}, {0,   0x0000}, {0,   0x0000}, {26,  0x00da}, {0,   0x0000}, {0,   0x0000}, {0,   0x0000},
     {31,  0x00df}};
 
+/** 検索テーブル上位インデックス。 */
 static ToCp932Table * table[] = {
 	0,       tbl_2,   0,       0,       0,       0,       0,       tbl_3,   tbl_4,   0,       0,       0,       0,       0,       0,       0,
 	0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,
@@ -1528,8 +1530,10 @@ static ToCp932Table * table[] = {
 	0,       0,       tbl_185, tbl_186, tbl_187, 0,       0,       0,       0,       0,       0,       0,       0,       0,       tbl_188, tbl_189
 };
 
+/** 変換テーブルサイズマクロ。 */
 #define CNT(a)	sizeof(a) / sizeof(ToCp932Table) 
 
+/** 検索テーブルサイズ。 */
 static size_t table_cnt[] = {
 	0,            CNT(tbl_2),   0,            0,            0,            0,            0,            CNT(tbl_3),
 	CNT(tbl_4),   0,            0,            0,            0,            0,            0,            0,
@@ -1681,8 +1685,13 @@ void collect_utf8_character(const char * ptr, size_t * count, unsigned int * cod
 	*code = c;
 }
 
-// 文字コード検索
-unsigned int convert_cp932(unsigned int code)
+/**
+ * 文字コードを検索する。
+ *
+ * @param code		utf32の文字値。
+ * @return			変換後文字値(cp932)
+ */
+static unsigned int convert_cp932(unsigned int code)
 {
     // 上位、下位位置を取得
 	int hi = code >> 7;
@@ -1704,7 +1713,16 @@ unsigned int convert_cp932(unsigned int code)
 	return 0;
 }
 
-const char * encoding_utf8_to_cp932(const char * input, char * buffer, size_t buffer_size)
+/**
+ * 文字コードを変換する（UTF8 -> cp932）
+ *
+ * @param input			入力文字列。
+ * @param buffer		変換用バッファ。
+ * @param buffer_size	変換用バッファサイズ。
+ */
+const char * encoding_utf8_to_cp932(const char * input,
+									char * buffer,
+									size_t buffer_size)
 {
 	const char * ptr = input;
 	char * strt_ptr = buffer;

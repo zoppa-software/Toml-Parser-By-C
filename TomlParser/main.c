@@ -15,18 +15,29 @@ int main(int argc, const char ** argv)
 #if 1
 	TomlDocument * toml = toml_initialize();
 	TomlValue	v;
+	TomlTable * t;
 	char buf[128];
 
 	toml_read(toml, "test.toml");
 	show_items(toml->table);
 
-	v = toml_search_key(toml, toml->table, "title");
+	v = toml_search_key(toml->table, "title");
 	printf_s("[ title = %s ]\n", encoding_utf8_to_cp932(v.value.string, buf, sizeof(buf)));
+
+	v = toml_search_key(toml->table, "database");
+	v = toml_search_key(v.value.table, "ports");
+	v = toml_search_index(v.value.array, 2);
+	printf_s("[ database.ports[2] = %lld ]\n", v.value.integer);
+
+	v = toml_search_key(toml->table, "os");
+	t = toml_search_table_index(v.value.tbl_array, 0);
+	v = toml_search_key(t, "name");
+	printf_s("[ os[0].name = %s ]\n", encoding_utf8_to_cp932(v.value.string, buf, sizeof(buf)));
 
 	toml_dispose(&toml);
 #endif
 
-#if 0
+#if 1
 	suc_tml("bool.toml");
 	suc_tml("float.toml");
 	suc_tml("implicit-and-explicit-after.toml");
@@ -66,7 +77,7 @@ int main(int argc, const char ** argv)
 	suc_tml("table-array-one.toml");
 #endif
 
-#if 0
+#if 1
 	test_tml("array-mixed-types-arrays-and-ints.toml");
 	test_tml("array-mixed-types-ints-and-floats.toml");
 	test_tml("array-mixed-types-strings-and-ints.toml");

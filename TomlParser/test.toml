@@ -31,3 +31,12 @@ hosts = [
   "alpha",
   "omega"
 ]
+
+[[os]]
+name = "windows"
+
+[[os]]
+name = "linux"
+
+[[os]]
+name = "mac"

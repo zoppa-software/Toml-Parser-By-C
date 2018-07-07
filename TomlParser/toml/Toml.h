@@ -2,7 +2,22 @@
 #define __TOML_H__
 
 /**
+ * TOMLファイルパーサー。
  *
+ * #include "toml/Toml.h"
+ * #include "helper/Encoding.h"
+ *
+ * TomlDocument * toml = toml_initialize();		// 機能生成
+ * TomlValue	v;
+ * char buf[128];
+ * 
+ * toml_read(toml, "test.toml");				// ファイル読み込み
+ *
+ * // キーを指定して値を取得します（TOMLファイルは UTF8なのでs-jis変換して文字列を出力しています）
+ * v = toml_search_key(toml->table, "title");
+ * printf_s("[ title = %s ]\n", encoding_utf8_to_cp932(v.value.string, buf, sizeof(buf)));
+ *
+ * toml_dispose(&toml);							// 機能解放
  *
  * Copyright (c) 2018 Takashi Zota
  * Released under the MIT license
@@ -207,9 +222,6 @@ typedef struct _TomlTable
 	// キー／値ハッシュ
 	const Hash *	hash;
 
-	// 定義済みならば 0以外
-	int		defined;
-
 } TomlTable;
 
 /**
@@ -330,11 +342,53 @@ void toml_delete_key_and_value(TomlBuckets * list);
 /**
  * 指定したテーブルから、キーの値を取得する。
  *
- * @param document	Tomlドキュメント。
  * @param table		検索するテーブル。
  * @param key		検索するキー。
  * @return			取得した値。
  */
-TomlValue toml_search_key(TomlDocument * impl, TomlTable * table, const char * key);
+TomlValue toml_search_key(TomlTable * table, const char * key);
+
+/**
+ * 指定したテーブルに、指定したキーが存在するか確認する。
+ *
+ * @param table		検索するテーブル。
+ * @param key		検索するキー。
+ * @return			存在したら 0以外を返す。
+ */
+int toml_contains_key(TomlTable * table, const char * key);
+
+/**
+ * 指定した配列の指定インデックスの値を取得する。
+ *
+ * @param array		配列。
+ * @param index		インデックス。
+ * @return			値。
+ */
+TomlValue toml_search_index(TomlArray * array, size_t index);
+
+/**
+ * 配列の要素数を取得する。
+ *
+ * @param array		配列。
+ * @return			要素数。
+ */
+size_t toml_get_array_count(TomlArray * array);
+
+/**
+ * 指定したテーブル配列の指定インデックスの値を取得する。
+ *
+ * @param tbl_array		テーブル配列。
+ * @param index			インデックス。
+ * @return				テーブル。
+ */
+TomlTable * toml_search_table_index(TomlTableArray * tbl_array, size_t index);
+
+/**
+ * テーブル配列の要素数を取得する。
+ *
+ * @param array		テーブル配列。
+ * @return			要素数。
+ */
+size_t toml_get_table_array_count(TomlTableArray * tbl_array);
 
 #endif /*  __TOML_H__ */

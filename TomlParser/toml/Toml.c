@@ -52,9 +52,25 @@ typedef struct TomlDocumentImpl
 
 } TomlDocumentImpl;
 
+/**
+ * テーブル。
+ */
+typedef struct _TomlTableImpl
+{
+	// キー／値ハッシュ
+	TomlTable table;
+
+	// 定義済みならば 0以外
+	int		defined;
+
+	// 参照ポインタ
+	TomlDocumentImpl * document;
+
+} TomlTableImpl;
+
 // 関数プロトタイプ
 static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
-												TomlTable * table,
+												TomlTableImpl * table,
 												TomlBuffer * buffer,
 												size_t start_point,
 												size_t * next_point);
@@ -78,11 +94,12 @@ static TomlValue empty_value;
  * @param impl	Tomlドキュメント。
  * @return		テーブル。
  */
-static TomlTable * create_table(TomlDocumentImpl * impl)
+static TomlTableImpl * create_table(TomlDocumentImpl * impl)
 {
-	TomlTable * res = instance_pop(&impl->table_cache);
-	res->hash = hash_initialize(sizeof(const char *));
+	TomlTableImpl * res = instance_pop(&impl->table_cache);
+	res->table.hash = hash_initialize(sizeof(const char *));
 	res->defined = 0;
+	res->document = impl;
 	return res;
 }
 
@@ -93,9 +110,10 @@ static TomlTable * create_table(TomlDocumentImpl * impl)
  */
 void delete_table_action(void * target)
 {
-	TomlTable * table = (TomlTable*)target;
-	hash_delete(&table->hash);
+	TomlTableImpl * table = (TomlTableImpl*)target;
+	hash_delete(&table->table.hash);
 	table->defined = 0;
+	table->document = 0;
 }
 
 /**
@@ -197,8 +215,8 @@ TomlDocument * toml_initialize()
 	// 領域を生成
 	memset(res, 0, sizeof(TomlDocumentImpl));
 
-	res->table_cache = instance_initialize(sizeof(TomlTable), TABLE_BLOCK_SIZE);
-	res->table = create_table(res);
+	res->table_cache = instance_initialize(sizeof(TomlTableImpl), TABLE_BLOCK_SIZE);
+	res->table = (TomlTable*)create_table(res);
 	res->root = res->table;
 	res->tblarray_cache = instance_initialize(sizeof(TomlTableArray), TABLE_BLOCK_SIZE);
 	res->array_cache = instance_initialize(sizeof(TomlArray), TABLE_BLOCK_SIZE);
@@ -305,7 +323,7 @@ static int get_inline_table(TomlDocumentImpl * impl,
 							size_t * next_point,
 							TomlResultSummary * error)
 {
-	TomlTable *			table = create_table(impl);
+	TomlTableImpl *		table = create_table(impl);
 	size_t				ptr = point;
 	TomlResultSummary	res;
 
@@ -329,7 +347,7 @@ static int get_inline_table(TomlDocumentImpl * impl,
 		ptr = *next_point;
 		switch (close_inline_table(buffer, ptr, next_point, error)) {
 		case 1:							// 1
-			buffer->table = table;
+			buffer->table = (TomlTable*)table;
 			return 1;
 
 		case 2:							// 2
@@ -624,7 +642,7 @@ static int analisys_value(TomlDocumentImpl * impl,
  * @return				読込結果。
  */
 static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
-												TomlTable * table,
+												TomlTableImpl * table,
 												TomlBuffer * buffer,
 												size_t point,
 												size_t * next_point)
@@ -667,14 +685,13 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 			res.column = ptr + 1;
 			res.row = buffer->loaded_line;
 		}
-		else if (!hash_contains(table->hash, &key_str, &val_pair)) {		// 2
-			hash_add(table->hash, &key_str, hash_value_of_pointer(value));
+		else if (!hash_contains(table->table.hash, &key_str, &val_pair)) {	// 2
+			hash_add(table->table.hash, &key_str, hash_value_of_pointer(value));
 			res.code = SUCCESS;
 			res.column = 0;
 			res.row = buffer->loaded_line;
 		}
 		else {
-			buffer->err_point = buffer->utf8s->length - 1;
 			res.code = DEFINED_KEY_ERR;
 			res.column = 0;
 			res.row = buffer->loaded_line;
@@ -694,14 +711,14 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
  * @param answer		取得したテーブル。
  * @return				0はエラー、1は作成済みのテーブル、2は新規作成
  */
-static int search_path_table(TomlTable * table,
+static int search_path_table(TomlTableImpl * table,
 							 const char * key_str,
-							 TomlTable ** answer)
+							 TomlTableImpl ** answer)
 {
 	HashPair		result;
 	TomlValue *		value;
 
-	if (hash_contains(table->hash, &key_str, &result)) {
+	if (hash_contains(table->table.hash, &key_str, &result)) {
 		// 指定のキーが登録済みならば、紐付く項目を返す
 		//
 		// 1. テーブルを返す
@@ -711,11 +728,11 @@ static int search_path_table(TomlTable * table,
 		switch (value->value_type)
 		{
 		case TomlTableValue:			// 1
-			*answer = value->value.table;
+			*answer = (TomlTableImpl*)value->value.table;
 			return 1;
 
 		case TomlTableArrayValue:		// 2
-			*answer = VEC_GET(TomlTable*,
+			*answer = VEC_GET(TomlTableImpl*,
 							  value->value.tbl_array->tables,
 							  value->value.tbl_array->tables->length - 1);
 			return 1;
@@ -740,15 +757,15 @@ static int search_path_table(TomlTable * table,
  * @return				作成結果。
  */
 static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
-										TomlTable * table,
+										TomlTableImpl * table,
 										TomlBuffer * buffer,
 										size_t point,
 										size_t * next_point)
 {
 	TomlUtf8			c;
 	size_t				i, nxt;
-	TomlTable *			cur_table = table;
-	TomlTable *			new_table;
+	TomlTableImpl *		cur_table = table;
+	TomlTableImpl *		new_table;
 	TomlValue *			value;
 	const char *		key_str;
 	TomlResultSummary	res;
@@ -764,7 +781,6 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 		i = toml_skip_space(buffer->utf8s, i);				// 1
 
 		if (!toml_get_key(buffer, i, &nxt, &res)) {			// 2
-			buffer->err_point = nxt;
 			return res;
 		}
 		i = nxt;
@@ -784,8 +800,9 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 			new_table = create_table(impl);					// 3-3
 			value = instance_pop(&impl->value_cache);
 			value->value_type = TomlTableValue;
-			value->value.table = new_table;
-			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
+			value->value.table = (TomlTable*)new_table;
+			hash_add(cur_table->table.hash,
+					 &key_str, hash_value_of_pointer(value));
 			cur_table = new_table;
 			break;
 		}
@@ -802,9 +819,9 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 	*next_point = i;
 
 	// カレントのテーブルを設定
-	impl->table = cur_table;
-	if (!impl->table->defined) {
-		impl->table->defined = 1;
+	impl->table = (TomlTable*)cur_table;
+	if (!cur_table->defined) {
+		cur_table->defined = 1;
 		res.code = SUCCESS;
 		res.column = 0;
 		res.row = buffer->loaded_line;
@@ -829,15 +846,15 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
  * @return				作成結果。
  */
 static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
-											  TomlTable * table,
+											  TomlTableImpl * table,
 											  TomlBuffer * buffer,
 											  size_t point,
 											  size_t * next_point)
 {
 	TomlUtf8			c;
 	size_t				i, j, nxt;
-	TomlTable *			cur_table = table;
-	TomlTable *			new_table;
+	TomlTableImpl *		cur_table = table;
+	TomlTableImpl *		new_table;
 	TomlValue *			value;
 	const char *		key_str;
 	TomlTableArray *	new_array;
@@ -857,7 +874,6 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 		i = toml_skip_space(buffer->utf8s, i);				// 1
 
 		if (!toml_get_key(buffer, i, &nxt, &res)) {			// 2
-			buffer->err_point = nxt;
 			return res;
 		}
 		i = nxt;
@@ -897,8 +913,9 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 			new_table = create_table(impl);								// 4
 			value = instance_pop(&impl->value_cache);
 			value->value_type = TomlTableValue;
-			value->value.table = new_table;
-			hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
+			value->value.table = (TomlTable*)new_table;
+			hash_add(cur_table->table.hash,
+					 &key_str, hash_value_of_pointer(value));
 			cur_table = new_table;
 			break;
 		}
@@ -916,7 +933,7 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	//    3-2. テーブル配列にテーブルを追加、追加されたテーブルが次のカレントテーブルになる
 	key_str = VEC_GET(const char*, buffer->key_ptr, buffer->key_ptr->length - 1);	// 1
 
-	if (hash_contains(cur_table->hash, &key_str, &hash_pair)) {			// 2-1
+	if (hash_contains(cur_table->table.hash, &key_str, &hash_pair)) {	// 2-1
 		value = (TomlValue*)hash_pair.value.object;
 		if (value->value_type == TomlTableArrayValue) {					// 2-2
 			new_table = create_table(impl);
@@ -935,14 +952,15 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 		value = instance_pop(&impl->value_cache);
 		value->value_type = TomlTableArrayValue;
 		value->value.tbl_array = new_array;
-		hash_add(cur_table->hash, &key_str, hash_value_of_pointer(value));
+		hash_add(cur_table->table.hash,
+				 &key_str, hash_value_of_pointer(value));
 
 		new_table = create_table(impl);									// 3-2
 		vec_add(new_array->tables, &new_table);
 	}
 	
 	// カレントのテーブルを作成したテーブルに変更
-	impl->table = new_table;
+	impl->table = (TomlTable*)new_table;
 
 	// 空白読み飛ばし
 	i = toml_skip_space(buffer->utf8s, i);
@@ -966,7 +984,7 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
  * @param input_len		読込文字列長。
  * @return				読込結果。
  */
-TomlResultCode toml_appendline(TomlDocumentImpl * impl, TomlBuffer * buffer)
+TomlResultSummary append_line(TomlDocumentImpl * impl, TomlBuffer * buffer)
 {
 	size_t				i;
 	size_t				rng_end;
@@ -994,27 +1012,24 @@ TomlResultCode toml_appendline(TomlDocumentImpl * impl, TomlBuffer * buffer)
 		break;
 
 	case TomlKeyValueLine:				// 2
-		res = analisys_key_and_value(impl, impl->table, buffer, i, &rng_end);
+		res = analisys_key_and_value(impl, (TomlTableImpl*)impl->table, buffer, i, &rng_end);
 		if (res.code == SUCCESS && !toml_skip_linefield(buffer->utf8s, rng_end)) {
-			buffer->err_point = rng_end;
 			res.code = KEY_VALUE_ERR;
 		}
 		break;
 
 	case TomlTableLine:					// 3
-		res = analisys_table(impl, impl->root, buffer, i, &rng_end);
+		res = analisys_table(impl, (TomlTableImpl*)impl->root, buffer, i, &rng_end);
 		if (res.code == SUCCESS &&
 			!toml_close_table(buffer->utf8s, rng_end)) {
-			buffer->err_point = rng_end;
 			res.code = TABLE_SYNTAX_ERR;
 		}
 		break;
 
 	case TomlTableArrayLine:			// 4
-		res = analisys_table_array(impl, impl->root, buffer, i, &rng_end);
+		res = analisys_table_array(impl, (TomlTableImpl*)impl->root, buffer, i, &rng_end);
 		if (res.code == SUCCESS &&
 			!toml_close_table_array(buffer->utf8s, rng_end)) {
-			buffer->err_point = rng_end;
 			res.code = TABLE_ARRAY_SYNTAX_ERR;
 		}
 		break;
@@ -1024,7 +1039,105 @@ TomlResultCode toml_appendline(TomlDocumentImpl * impl, TomlBuffer * buffer)
 		break;
 	}
 
-	return res.code;
+	res.utf8s = buffer->utf8s;
+	res.word_dst = buffer->word_dst;
+	return res;
+}
+
+/**
+ * エラー情報を出力する。
+ *
+ * @param rescode	エラー情報。
+ */
+static void show_message(TomlResultSummary rescode)
+{
+	const char * errmsg = 0;
+	const char * errline = toml_err_message(rescode.utf8s, rescode.word_dst);
+
+	switch (rescode.code) {
+	case FAIL_OPEN_ERR:
+		errmsg = "ファイルオープンエラー";
+		break;
+	case KEY_ANALISYS_ERR:
+		errmsg = "キー文字列の解析に失敗";
+		break;
+	case KEY_VALUE_ERR:
+		errmsg = "値の解析に失敗";
+		break;
+	case TABLE_NAME_ANALISYS_ERR:
+		errmsg = "テーブル名解決に失敗";
+		break;
+	case TABLE_REDEFINITION_ERR:
+		errmsg = "テーブル名を再定義しています";
+		break;
+	case TABLE_SYNTAX_ERR:
+		errmsg = "テーブル構文の解析に失敗";
+		break;
+	case TABLE_ARRAY_SYNTAX_ERR:
+		errmsg = "テーブル配列構文の解析に失敗";
+		break;
+	case MULTI_QUOAT_STRING_ERR:
+		errmsg = "複数クォーテーション文字列定義エラー";
+		break;
+	case MULTI_LITERAL_STRING_ERR:
+		errmsg = "複数リテラル文字列定義エラー";
+		break;
+	case QUOAT_STRING_ERR:
+		errmsg = "文字列定義エラー";
+		break;
+	case LITERAL_STRING_ERR:
+		errmsg = "リテラル文字列定義エラー";
+		break;
+	case INTEGER_VALUE_RANGE_ERR:
+		errmsg = "整数値が有効範囲を超えている";
+		break;
+	case UNDERBAR_CONTINUE_ERR:
+		errmsg = "数値定義に連続してアンダーバーが使用された";
+		break;
+	case ZERO_NUMBER_ERR:
+		errmsg = "数値の先頭に無効な 0がある";
+		break;
+	case DEFINED_KEY_ERR:
+		errmsg = "キーが再定義された";
+		break;
+	case MULTI_DECIMAL_ERR:
+		errmsg = "複数の小数点が定義された";
+		break;
+	case DOUBLE_VALUE_ERR:
+		errmsg = "実数の表現が範囲外";
+		break;
+	case DATE_FORMAT_ERR:
+		errmsg = "日付が解析できない";
+		break;
+	case UNICODE_DEFINE_ERR:
+		errmsg = "ユニコード文字定義の解析に失敗";
+		break;
+	case INVALID_ESCAPE_CHAR_ERR:
+		errmsg = "無効なエスケープ文字が指定された";
+		break;
+	case INLINE_TABLE_NOT_CLOSE_ERR:
+		errmsg = "インラインテーブルが正しく閉じられていない";
+		break;
+	case ARRAY_NOT_CLOSE_ERR:
+		errmsg = "配列が正しく閉じられていない";
+		break;
+	case EMPTY_COMMA_ERR:
+		errmsg = "カンマの前に値が定義されていない";
+		break;
+	case ARRAY_VALUE_DIFFERENT_ERR:
+		errmsg = "配列の値の型が異なる";
+		break;
+	case NO_LEADING_ZERO_ERR:
+		errmsg = "小数点の前に数値が入力されていない";
+		break;
+	case NO_LAST_ZERO_ERR:
+		errmsg = "小数点の後に数値が入力されていない";
+		break;	
+	}
+
+	fprintf(stderr, "%s\n", errmsg);
+	fprintf(stderr, "行: %lld  位置: %lld\n", rescode.row, rescode.column);
+	fprintf(stderr, "> %s\n", errline);
 }
 
 /**
@@ -1038,7 +1151,7 @@ TomlResultCode toml_read(TomlDocument * document, const char * path)
 {
 	TomlDocumentImpl * impl = (TomlDocumentImpl*)document;
 	TomlBuffer * buffer = toml_create_buffer(path);
-	TomlResultCode rescode;
+	TomlResultSummary rescode;
 
 	if (buffer == 0) {
 		fprintf(stderr, "ファイルオープンエラー\n");
@@ -1046,117 +1159,14 @@ TomlResultCode toml_read(TomlDocument * document, const char * path)
 	}
 
 	do {
-		rescode = toml_appendline(impl, buffer);
-		if (rescode != SUCCESS) {
-			const char * errmsg = toml_err_message(buffer->utf8s, buffer->word_dst);
-
-			switch (rescode) {
-			case FAIL_OPEN_ERR:
-				fprintf(stderr, "ファイルオープンエラー\n");
-				goto EXIT_ANALISYS;
-
-			case KEY_ANALISYS_ERR:
-				fprintf(stderr, "キー文字列の解析に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case KEY_VALUE_ERR:
-				fprintf(stderr, "値の解析に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case TABLE_NAME_ANALISYS_ERR:
-				fprintf(stderr, "テーブル名解決に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case TABLE_REDEFINITION_ERR:
-				fprintf(stderr, "テーブル名を再定義しています : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case TABLE_SYNTAX_ERR:
-				fprintf(stderr, "テーブル構文の解析に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case TABLE_ARRAY_SYNTAX_ERR:
-				fprintf(stderr, "テーブル配列構文の解析に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case MULTI_QUOAT_STRING_ERR:
-				fprintf(stderr, "複数クォーテーション文字列定義エラー : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case MULTI_LITERAL_STRING_ERR:
-				fprintf(stderr, "複数リテラル文字列定義エラー : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case QUOAT_STRING_ERR:
-				fprintf(stderr, "文字列定義エラー : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case LITERAL_STRING_ERR:
-				fprintf(stderr, "リテラル文字列定義エラー : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case INTEGER_VALUE_RANGE_ERR:
-				fprintf(stderr, "整数値が有効範囲を超えている : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case UNDERBAR_CONTINUE_ERR:
-				fprintf(stderr, "数値定義に連続してアンダーバーが使用された : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case ZERO_NUMBER_ERR:
-				fprintf(stderr, "数値の先頭に無効な 0がある : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case DEFINED_KEY_ERR:
-				fprintf(stderr, "キーが再定義された : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case MULTI_DECIMAL_ERR:
-				fprintf(stderr, "複数の小数点が定義された : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case DOUBLE_VALUE_ERR:
-				fprintf(stderr, "実数の表現が範囲外 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case DATE_FORMAT_ERR:
-				fprintf(stderr, "日付が解析できない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case UNICODE_DEFINE_ERR:
-				fprintf(stderr, "ユニコード文字定義の解析に失敗 : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case INVALID_ESCAPE_CHAR_ERR:
-				fprintf(stderr, "無効なエスケープ文字が指定された : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case INLINE_TABLE_NOT_CLOSE_ERR:
-				fprintf(stderr, "インラインテーブルが正しく閉じられていない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case ARRAY_NOT_CLOSE_ERR:
-				fprintf(stderr, "配列が正しく閉じられていない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case EMPTY_COMMA_ERR:
-				fprintf(stderr, "カンマの前に値が定義されていない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case ARRAY_VALUE_DIFFERENT_ERR:
-				fprintf(stderr, "配列の値の型が異なる : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case NO_LEADING_ZERO_ERR:
-				fprintf(stderr, "小数点の前に数値が入力されていない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-
-			case NO_LAST_ZERO_ERR:
-				fprintf(stderr, "小数点の後に数値が入力されていない : %s\n", errmsg);
-				goto EXIT_ANALISYS;
-			}
+		// 一行取り込み
+		rescode = append_line(impl, buffer);
+		if (rescode.code != SUCCESS) {
+			show_message(rescode);
+			goto EXIT_ANALISYS;
 		}
 
+		// バッファ消去
 		vec_clear(buffer->utf8s);
 		vec_clear(buffer->key_ptr);
 	} while (!toml_end_of_file(buffer));
@@ -1164,7 +1174,7 @@ TomlResultCode toml_read(TomlDocument * document, const char * path)
 EXIT_ANALISYS:;
 	toml_close_buffer(buffer);
 
-	return rescode;
+	return rescode.code;
 }
 
 //-----------------------------------------------------------------------------
@@ -1225,16 +1235,15 @@ void toml_delete_key_and_value(TomlBuckets * list)
 /**
  * 指定したテーブルから、キーの値を取得する。
  *
- * @param document		Tomlドキュメント。
  * @param table		検索するテーブル。
  * @param key		検索するキー。
  * @return			取得した値。
  */
-TomlValue toml_search_key(TomlDocument * document,
-						  TomlTable * table,
+TomlValue toml_search_key(TomlTable * table,
 						  const char * key)
 {
-	TomlDocumentImpl * impl = (TomlDocumentImpl*)document;
+	TomlTableImpl *	tbl_impl = (TomlTableImpl*)table;
+	TomlDocumentImpl * impl = (TomlDocumentImpl*)tbl_impl->document;
 	const char * reg_key = 0;
 	HashPair	result;
 
@@ -1254,4 +1263,96 @@ TomlValue toml_search_key(TomlDocument * document,
 			return empty_value;
 		}
 	}
+}
+
+/**
+ * 指定したテーブルに、指定したキーが存在するか確認する。
+ *
+ * @param table		検索するテーブル。
+ * @param key		検索するキー。
+ * @return			存在したら 0以外を返す。
+ */
+int toml_contains_key(TomlTable * table, const char * key)
+{
+	TomlTableImpl *	tbl_impl = (TomlTableImpl*)table;
+	TomlDocumentImpl * impl = (TomlDocumentImpl*)tbl_impl->document;
+	const char * reg_key = 0;
+	HashPair	result;
+
+	if (*key == 0) {
+		return 0;
+	}
+	else {
+		// キー文字列を返す
+		reg_key = stringhash_add(impl->strings_cache, key);
+
+		// 存在したら 0以外を返す
+		return hash_contains(table->hash, &reg_key, &result);
+	}
+}
+
+/**
+ * 指定した配列の指定インデックスの値を取得する。
+ *
+ * @param array		配列。
+ * @param index		インデックス。
+ * @return			値。
+ */
+TomlValue toml_search_index(TomlArray * array, size_t index)
+{
+	if (array != 0) {
+		if (index < array->array->length) {
+			return *(VEC_GET(TomlValue*, array->array, index));
+		}
+		else {
+			return empty_value;
+		}
+	}
+	else {
+		return empty_value;
+	}
+}
+
+/**
+ * 配列の要素数を取得する。
+ *
+ * @param array		配列。
+ * @return			要素数。
+ */
+size_t toml_get_array_count(TomlArray * array)
+{
+	return (array != 0 ? array->array->length : 0);
+}
+
+/**
+ * 指定したテーブル配列の指定インデックスの値を取得する。
+ *
+ * @param tbl_array		テーブル配列。
+ * @param index			インデックス。
+ * @return				テーブル。
+ */
+TomlTable * toml_search_table_index(TomlTableArray * tbl_array, size_t index)
+{
+	if (tbl_array != 0) {
+		if (index < tbl_array->tables->length) {
+			return (VEC_GET(TomlTable*, tbl_array->tables, index));
+		}
+		else {
+			return 0;
+		}
+	}
+	else {
+		return 0;
+	}
+}
+
+/**
+ * テーブル配列の要素数を取得する。
+ *
+ * @param array		テーブル配列。
+ * @return			要素数。
+ */
+size_t toml_get_table_array_count(TomlTableArray * tbl_array)
+{
+	return (tbl_array != 0 ? tbl_array->tables->length : 0);
 }

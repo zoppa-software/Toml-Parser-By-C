@@ -2,6 +2,8 @@
 #define __TOML_PARSE_HELPER_H__
 
 /**
+ * 内部処理用のヘッダ、ヘルパ関数。
+ *
  * Copyright (c) 2018 Takashi Zota
  * Released under the MIT license
  * https://opensource.org/licenses/mit-license.php

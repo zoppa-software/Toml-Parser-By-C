@@ -2,6 +2,8 @@
 #define __TOML__BUFFERH__
 
 /**
+ * 内部処理用のヘッダ、ファイルよりの読み込みバッファ。
+ *
  * Copyright (c) 2018 Takashi Zota
  * Released under the MIT license
  * https://opensource.org/licenses/mit-license.php
@@ -43,9 +45,6 @@ typedef struct _TomlBuffer
 
 	// バッファ
 	Vec *	utf8s;
-
-	// 解析エラー位置
-	size_t	err_point;
 
 	// 読み込み済み行数
 	size_t	loaded_line;

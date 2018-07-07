@@ -779,7 +779,6 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 
 	// '.' で区切られたテーブル名を事前に収集する
 	//
-	// 1. 
 	// 1. 空白読み捨て
 	// 2. テーブル名を取得
 	// 3. 格納テーブルを作成
@@ -804,7 +803,7 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 		i++;
 	}
 
-	// テーブル配列が閉じられているか確認
+	// テーブルが閉じられているか確認
 	if (!toml_close_table(buffer->utf8s, i)) {
 		res.code = TABLE_SYNTAX_ERR;
 		res.column = 0;
@@ -813,21 +812,27 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 		return res;
 	}
 
+	// テーブルを作成する
+	//
+	// 1. テーブル参照を取得
+	// 2. エラーが有れば終了
+	// 3. 既に作成済みならばカレントを変更
+	// 4. 作成されていなければテーブルを作成し、カレントに設定
 	for (j = 0; j < buffer->key_ptr->length; ++j) {
 		key_str = VEC_GET(const char*, buffer->key_ptr, j);
 
 		switch (search_path_table(cur_table, key_str, &new_table)) {	// 1
 		case 0:
-			res.code = TABLE_REDEFINITION_ERR;							// 3-1
+			res.code = TABLE_REDEFINITION_ERR;							// 2
 			res.column = 0;
 			res.row = buffer->loaded_line;
 			*next_point = i;
 			return res;
 		case 1:
-			cur_table = new_table;										// 3-2
+			cur_table = new_table;										// 3
 			break;
 		default:
-			new_table = create_table(impl);								// 3-3
+			new_table = create_table(impl);								// 4
 			value = instance_pop(&impl->value_cache);
 			value->value_type = TomlTableValue;
 			value->value.table = (TomlTable*)new_table;
@@ -887,7 +892,6 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 
 	// '.' で区切られたテーブル名を事前に収集する
 	//
-	// 1. 
 	// 1. 空白読み捨て
 	// 2. テーブル名を取得
 	// 3. 格納テーブルを作成

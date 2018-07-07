@@ -75,6 +75,7 @@ int main(int argc, const char ** argv)
 	suc_tml("table-array-many.toml");
 	suc_tml("table-array-nest.toml");
 	suc_tml("table-array-one.toml");
+	suc_tml("inline.toml");
 #endif
 
 #if 1

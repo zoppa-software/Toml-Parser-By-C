@@ -332,7 +332,7 @@ static int get_inline_table(TomlDocumentImpl * impl,
 		ptr = toml_skip_linefield_and_space(buffer, ptr);
 
 		// キー／値部分を取り込む
-		res = analisys_key_and_value(impl, table, buffer, ptr, next_point);
+		res = analisys_key_and_value(impl, table, buffer, ptr, next_point, 1);
 		if (res.code != SUCCESS) {
 			instance_push_destructor(&impl->table_cache, table, delete_table_action);
 			*error = res;
@@ -639,13 +639,15 @@ static int analisys_value(TomlDocumentImpl * impl,
  * @param buffer		読込バッファ。
  * @param point			読込開始位置。
  * @param next_point	読込終了位置。
+ * @param last_nochk	値の終了範囲チェックをしないなら 0以外
  * @return				読込結果。
  */
 static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 												TomlTableImpl * table,
 												TomlBuffer * buffer,
 												size_t point,
-												size_t * next_point)
+												size_t * next_point,
+												int last_nochk)
 {
 	size_t				ptr;
 	TomlUtf8			c;
@@ -686,7 +688,7 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 			res.row = buffer->loaded_line;
 		}
 		else if (!hash_contains(table->table.hash, &key_str, &val_pair)) {	// 2
-			if (toml_skip_linefield(buffer->utf8s, *next_point)) {
+			if (last_nochk || toml_skip_linefield(buffer->utf8s, *next_point)) {
 				hash_add(table->table.hash, &key_str, hash_value_of_pointer(value));
 				res.code = SUCCESS;
 				res.column = 0;
@@ -1049,7 +1051,7 @@ TomlResultSummary append_line(TomlDocumentImpl * impl, TomlBuffer * buffer)
 		break;
 
 	case TomlKeyValueLine:				// 2
-		res = analisys_key_and_value(impl, (TomlTableImpl*)impl->table, buffer, i, &rng_end);
+		res = analisys_key_and_value(impl, (TomlTableImpl*)impl->table, buffer, i, &rng_end, 0);
 		if (res.code == SUCCESS && !toml_skip_linefield(buffer->utf8s, rng_end)) {
 			res.code = KEY_VALUE_ERR;
 		}

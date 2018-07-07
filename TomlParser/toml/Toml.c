@@ -686,10 +686,17 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 			res.row = buffer->loaded_line;
 		}
 		else if (!hash_contains(table->table.hash, &key_str, &val_pair)) {	// 2
-			hash_add(table->table.hash, &key_str, hash_value_of_pointer(value));
-			res.code = SUCCESS;
-			res.column = 0;
-			res.row = buffer->loaded_line;
+			if (toml_skip_linefield(buffer->utf8s, *next_point)) {
+				hash_add(table->table.hash, &key_str, hash_value_of_pointer(value));
+				res.code = SUCCESS;
+				res.column = 0;
+				res.row = buffer->loaded_line;
+			}
+			else {
+				res.code = KEY_VALUE_ERR;
+				res.column = *next_point;
+				res.row = buffer->loaded_line;
+			}
 		}
 		else {
 			res.code = DEFINED_KEY_ERR;
@@ -763,20 +770,22 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 										size_t * next_point)
 {
 	TomlUtf8			c;
-	size_t				i, nxt;
+	size_t				i, j, nxt;
 	TomlTableImpl *		cur_table = table;
 	TomlTableImpl *		new_table;
 	TomlValue *			value;
 	const char *		key_str;
 	TomlResultSummary	res;
 
+	// '.' で区切られたテーブル名を事前に収集する
+	//
+	// 1. 
 	// 1. 空白読み捨て
 	// 2. テーブル名を取得
 	// 3. 格納テーブルを作成
-	//    3-1. テーブル取得エラー
-	//    3-2. 作成済みテーブルを取得できた
-	//    3-3. 新規テーブルを作成する
 	// 4. '.' があれば階層を追いかける
+	vec_clear(buffer->key_ptr);
+
 	for (i = point; i < buffer->utf8s->length; ) {
 		i = toml_skip_space(buffer->utf8s, i);				// 1
 
@@ -786,18 +795,39 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 		i = nxt;
 
 		key_str = regist_string(impl, buffer);				// 3
-		switch (search_path_table(cur_table, key_str, &new_table)) {
+		vec_add(buffer->key_ptr, (char*)&key_str);
+
+		c = toml_get_char(buffer->utf8s, i);				// 4
+		if (c.num != '.') {
+			break;
+		}
+		i++;
+	}
+
+	// テーブル配列が閉じられているか確認
+	if (!toml_close_table(buffer->utf8s, i)) {
+		res.code = TABLE_SYNTAX_ERR;
+		res.column = 0;
+		res.row = buffer->loaded_line;
+		*next_point = i;
+		return res;
+	}
+
+	for (j = 0; j < buffer->key_ptr->length; ++j) {
+		key_str = VEC_GET(const char*, buffer->key_ptr, j);
+
+		switch (search_path_table(cur_table, key_str, &new_table)) {	// 1
 		case 0:
-			res.code = TABLE_REDEFINITION_ERR;				// 3-1
+			res.code = TABLE_REDEFINITION_ERR;							// 3-1
 			res.column = 0;
 			res.row = buffer->loaded_line;
 			*next_point = i;
 			return res;
 		case 1:
-			cur_table = new_table;							// 3-2
+			cur_table = new_table;										// 3-2
 			break;
 		default:
-			new_table = create_table(impl);					// 3-3
+			new_table = create_table(impl);								// 3-3
 			value = instance_pop(&impl->value_cache);
 			value->value_type = TomlTableValue;
 			value->value.table = (TomlTable*)new_table;
@@ -806,12 +836,6 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 			cur_table = new_table;
 			break;
 		}
-
-		c = toml_get_char(buffer->utf8s, i);				// 4
-		if (c.num != '.') {
-			break;
-		}
-		i++;
 	}
 
 	// 空白は読み捨てておく
@@ -886,6 +910,15 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 			break;
 		}
 		i++;
+	}
+
+	// テーブル配列が閉じられているか確認
+	if (!toml_close_table_array(buffer->utf8s, i)) {
+		res.code = TABLE_ARRAY_SYNTAX_ERR;
+		res.column = 0;
+		res.row = buffer->loaded_line;
+		*next_point = i;
+		return res;
 	}
 
 	// 最下層のテーブル以外のテーブル参照を収集する
@@ -1020,18 +1053,10 @@ TomlResultSummary append_line(TomlDocumentImpl * impl, TomlBuffer * buffer)
 
 	case TomlTableLine:					// 3
 		res = analisys_table(impl, (TomlTableImpl*)impl->root, buffer, i, &rng_end);
-		if (res.code == SUCCESS &&
-			!toml_close_table(buffer->utf8s, rng_end)) {
-			res.code = TABLE_SYNTAX_ERR;
-		}
 		break;
 
 	case TomlTableArrayLine:			// 4
 		res = analisys_table_array(impl, (TomlTableImpl*)impl->root, buffer, i, &rng_end);
-		if (res.code == SUCCESS &&
-			!toml_close_table_array(buffer->utf8s, rng_end)) {
-			res.code = TABLE_ARRAY_SYNTAX_ERR;
-		}
 		break;
 
 	default:

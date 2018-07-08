@@ -764,7 +764,7 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 	}
 
 	// ‰üs‚Ü‚ÅŠm”F
-	if (!last_nochk && !toml_skip_linefield(buffer->utf8s, *next_point)) {
+	if (!last_nochk && !toml_skip_line_end(buffer->utf8s, *next_point)) {
 		res = toml_res_ctor(KEY_VALUE_ERR, *next_point, buffer->loaded_line);
 		goto EXIT_KEY_AND_VALUE;
 	}

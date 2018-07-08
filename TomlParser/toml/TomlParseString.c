@@ -468,7 +468,8 @@ int toml_get_multi_string_value(TomlBuffer * buffer,
 			case '\\':
 				// \のエスケープ文字判定
 				nx_c = toml_get_char(buffer->utf8s, i + 1).num;
-				if (nx_c == '\r' || nx_c == '\n') {
+				if ((nx_c == '\r' || nx_c == '\n' || nx_c == '\t' || nx_c == ' ') &&
+					toml_skip_line_feed(buffer->utf8s, i + 1)) {
 					skip_space = 1;
 					i += 1;
 				}

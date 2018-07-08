@@ -139,7 +139,7 @@ size_t toml_check_start_line_token(Vec * utf8s,
  * @param i			検索開始位置。
  * @return			改行／終端／コメントならば 0以外。
  */
-int toml_skip_linefield(Vec * utf8s, size_t i)
+int toml_skip_line_end(Vec * utf8s, size_t i)
 {
 	TomlUtf8	c;
 
@@ -149,6 +149,25 @@ int toml_skip_linefield(Vec * utf8s, size_t i)
 	// 文字を判定
 	c = toml_get_char(utf8s, i++);
 	return (c.num == '#' || c.num == '\r' || c.num == '\n' || c.num == 0);
+}
+
+/**
+ * 空白を読み飛ばし、次が改行／終端ならば真を返す。
+ *
+ * @param utf8s		対象文字列。
+ * @param i			検索開始位置。
+ * @return			改行／終端／コメントならば 0以外。
+ */
+int toml_skip_line_feed(Vec * utf8s, size_t i)
+{
+	TomlUtf8	c;
+
+	// 空白を読み飛ばす
+	i = toml_skip_space(utf8s, i);
+
+	// 文字を判定
+	c = toml_get_char(utf8s, i++);
+	return (c.num == '\r' || c.num == '\n' || c.num == 0);
 }
 
 /**

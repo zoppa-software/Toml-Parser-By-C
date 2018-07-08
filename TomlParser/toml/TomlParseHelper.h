@@ -80,7 +80,16 @@ size_t toml_check_start_line_token(Vec * utf8s, size_t i, TomlLineType * tokenTy
  * @param i			検索開始位置。
  * @return			改行／終端／コメントならば 0以外。
  */
-int toml_skip_linefield(Vec * utf8s, size_t i);
+int toml_skip_line_end(Vec * utf8s, size_t i);
+
+/**
+ * 空白を読み飛ばし、次が改行／終端ならば真を返す。
+ *
+ * @param utf8s		対象文字列。
+ * @param i			検索開始位置。
+ * @return			改行／終端／コメントならば 0以外。
+ */
+int toml_skip_line_feed(Vec * utf8s, size_t i);
 
 /**
  * ']' の後、次が改行／終端／コメントならば真を返す。

@@ -40,9 +40,6 @@ typedef struct _TomlBuffer
 	// 配列参照
 	TomlArray * array;
 
-	// キー文字列バッファ
-	Vec *	key_ptr;
-
 	// バッファ
 	Vec *	utf8s;
 

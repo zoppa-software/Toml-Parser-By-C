@@ -72,8 +72,9 @@ typedef struct _TomlTableImpl
 static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 												TomlTableImpl * table,
 												TomlBuffer * buffer,
-												size_t start_point,
-												size_t * next_point);
+												size_t point,
+												size_t * next_point,
+												int last_nochk);
 
 static int analisys_value(TomlDocumentImpl * impl,
 						  TomlBuffer * buffer,
@@ -179,24 +180,6 @@ static void delete_array(TomlDocumentImpl * impl, TomlArray * array)
 	instance_push_destructor(&impl->array_cache, array, delete_array_action);
 }
 
-/**
- * 文字列を保持する。
- *
- * @param impl		Tomlドキュメント。
- * @param buffer	読み込みバッファ。
- * @return			文字列。
- */
-static char * regist_string(TomlDocumentImpl * impl, TomlBuffer * buffer)
-{
-	static char empty[] = { 0 };
-	if (buffer->word_dst->length > 1) {
-		return (char*)stringhash_add(impl->strings_cache, (char*)buffer->word_dst->pointer);
-	}
-	else {
-		return empty;
-	}
-}
-
 //-----------------------------------------------------------------------------
 // コンストラクタ、デストラクタ
 //-----------------------------------------------------------------------------
@@ -252,6 +235,114 @@ void toml_dispose(TomlDocument ** document)
 }
 
 //-----------------------------------------------------------------------------
+// キー解析
+//-----------------------------------------------------------------------------
+/**
+ * 文字列を保持する。
+ *
+ * @param impl		Tomlドキュメント。
+ * @param buffer	読み込みバッファ。
+ * @return			文字列。
+ */
+static char * regist_string(TomlDocumentImpl * impl, TomlBuffer * buffer)
+{
+	static char empty[] = { 0 };
+	if (buffer->word_dst->length > 1) {
+		return (char*)stringhash_add(impl->strings_cache, (char*)buffer->word_dst->pointer);
+	}
+	else {
+		return empty;
+	}
+}
+
+/**
+ * キー文字列の取得。
+ *
+ * @param impl			Tomlドキュメント。
+ * @param buffer		読み込み領域。
+ * @param key_ptr		キー文字列リスト。
+ * @param point			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param error			エラー詳細情報（戻り値）
+ * @return				取得できたら 0以外。
+ */
+static int get_keys(TomlDocumentImpl * impl,
+					TomlBuffer * buffer,
+					Vec * key_ptr,
+					size_t point,
+					size_t * next_point,
+					TomlResultSummary * error)
+{
+	size_t			i;
+	TomlUtf8		c;
+	const char *	key_str;
+
+	vec_clear(key_ptr);
+
+	for (i = point; i < buffer->utf8s->length; ) {
+		i = toml_skip_space(buffer->utf8s, i);				// 1
+
+		if (!toml_get_key(buffer, i, next_point, error)) {	// 2
+			return 0;
+		}
+		i = *next_point;
+
+		key_str = regist_string(impl, buffer);				// 3
+		vec_add(key_ptr, (char*)&key_str);
+
+		c = toml_get_char(buffer->utf8s, i);				// 4
+		if (c.num != '.') {
+			break;
+		}
+		i++;
+	}
+	return 1;
+}
+
+/**
+ * パスを走査して、テーブルを取得する。
+ *
+ * @param table			カレントテーブル。
+ * @param key_str		キー文字列。
+ * @param answer		取得したテーブル。
+ * @return				0はエラー、1は作成済みのテーブル、2は新規作成
+ */
+static int search_path_table(TomlTableImpl * table,
+							 const char * key_str,
+							 TomlTableImpl ** answer)
+{
+	HashPair		result;
+	TomlValue *		value;
+
+	if (hash_contains(table->table.hash, &key_str, &result)) {
+		// 指定のキーが登録済みならば、紐付く項目を返す
+		//
+		// 1. テーブルを返す
+		// 2. テーブル配列のテーブルを返す
+		// 3. テーブルの新規作成を依頼
+		value = (TomlValue*)result.value.object;
+		switch (value->value_type)
+		{
+		case TomlTableValue:			// 1
+			*answer = (TomlTableImpl*)value->value.table;
+			return 1;
+
+		case TomlTableArrayValue:		// 2
+			*answer = VEC_GET(TomlTableImpl*,
+							  value->value.tbl_array->tables,
+							  value->value.tbl_array->tables->length - 1);
+			return 1;
+
+		default:
+			return 0;
+		}
+	}
+	else {
+		return 2;						// 3
+	}
+}
+
+//-----------------------------------------------------------------------------
 // キー／値、インラインテーブル、配列の追加
 //-----------------------------------------------------------------------------
 /**
@@ -291,18 +382,13 @@ static int close_inline_table(TomlBuffer * buffer,
 
 		default:
 			// インラインテーブルが閉じられていない
-			error->code = INLINE_TABLE_NOT_CLOSE_ERR;
-			error->column = point + 1;
-			error->row = buffer->loaded_line;
-			*next_point = point + 1;
-			return 0;
+			goto EXIT_WHILE;
 		}
 	}
 
+EXIT_WHILE:
 	// インラインテーブルが閉じられていない
-	error->code = INLINE_TABLE_NOT_CLOSE_ERR;
-	error->column = point + 1;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(INLINE_TABLE_NOT_CLOSE_ERR, point + 1, buffer->loaded_line);
 	*next_point = point + 1;
 	return 0;
 }
@@ -363,9 +449,7 @@ static int get_inline_table(TomlDocumentImpl * impl,
 
 	// インラインテーブルが閉じられていない
 	instance_push_destructor(&impl->table_cache, table, delete_table_action);
-	error->code = INLINE_TABLE_NOT_CLOSE_ERR;
-	error->column = buffer->utf8s->length;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(INLINE_TABLE_NOT_CLOSE_ERR, buffer->utf8s->length, buffer->loaded_line);
 	*next_point = buffer->utf8s->length;
 	return 0;
 }
@@ -407,18 +491,13 @@ static int close_value_array(TomlBuffer * buffer,
 
 		default:
 			// 配列が閉じられていない
-			error->code = ARRAY_NOT_CLOSE_ERR;
-			error->column = point + 1;
-			error->row = buffer->loaded_line;
-			*next_point = point + 1;
-			return 0;
+			goto EXIT_WHILE;
 		}
 	}
 
+EXIT_WHILE:
 	// 配列が閉じられていない
-	error->code = ARRAY_NOT_CLOSE_ERR;
-	error->column = point + 1;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(ARRAY_NOT_CLOSE_ERR, point + 1, buffer->loaded_line);
 	*next_point = point + 1;
 	return 0;
 }
@@ -495,9 +574,7 @@ static int get_value_array(TomlDocumentImpl * impl,
 			}
 			else {
 				delete_array(impl, array);
-				error->code = ARRAY_VALUE_DIFFERENT_ERR;
-				error->column = *next_point;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(ARRAY_VALUE_DIFFERENT_ERR, *next_point, buffer->loaded_line);
 				return 0;
 			}
 
@@ -508,9 +585,7 @@ static int get_value_array(TomlDocumentImpl * impl,
 			}
 			else {
 				delete_array(impl, array);
-				error->code = EMPTY_COMMA_ERR;
-				error->column = *next_point;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(EMPTY_COMMA_ERR, *next_point, buffer->loaded_line);
 				return 0;
 			}
 
@@ -523,9 +598,7 @@ static int get_value_array(TomlDocumentImpl * impl,
 
 	// 配列が閉じられていない
 	delete_array(impl, array);
-	error->code = ARRAY_NOT_CLOSE_ERR;
-	error->column = buffer->utf8s->length;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(ARRAY_NOT_CLOSE_ERR, buffer->utf8s->length, buffer->loaded_line);
 	*next_point = buffer->utf8s->length;
 	return 0;
 }
@@ -625,9 +698,7 @@ static int analisys_value(TomlDocumentImpl * impl,
 	}
 
 	*res_value = value;
-	error->code = SUCCESS;
-	error->column = 0;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(SUCCESS, 0, buffer->loaded_line);
 	return 1;
 }
 
@@ -649,112 +720,102 @@ static TomlResultSummary analisys_key_and_value(TomlDocumentImpl * impl,
 												size_t * next_point,
 												int last_nochk)
 {
-	size_t				ptr;
+	size_t				j, ptr;
 	TomlUtf8			c;
 	TomlValue *			value;
+	TomlValue *			tbl_val;
+	Vec *				key_ptr;
 	const  char *		key_str;
 	HashPair			val_pair;
 	TomlResultSummary	res;
+	TomlTableImpl *		cur_table;
+	TomlTableImpl *		new_table;
 
 	// キー文字列を取得する
 	//
 	// 1. キー文字列を取得
 	// 2. キー以降の空白を読み飛ばす
 	// 3. = で連結しているか確認
-	if (!toml_get_key(buffer, point, &ptr, &res)) {			// 1
-		return res;
+	key_ptr = vec_initialize(sizeof(char*));
+	if (!get_keys(impl, buffer, key_ptr, point, &ptr, &res)) {	// 1
+		goto EXIT_KEY_AND_VALUE;
 	}
-	key_str = regist_string(impl, buffer);
 
 	ptr = toml_skip_space(buffer->utf8s, ptr);				// 2
 
 	c = toml_get_char(buffer->utf8s, ptr);					// 3
 	if (c.num != '=') {
-		res.code = KEY_ANALISYS_ERR;
-		res.column = ptr;
-		res.row = buffer->loaded_line;
+		res = toml_res_ctor(KEY_ANALISYS_ERR, ptr, buffer->loaded_line);
 		*next_point = ptr;
-		return res;
+		goto EXIT_KEY_AND_VALUE;
 	}
 
 	// 値を取得する
 	//
-	// 1. 値を解析する
-	// 2. キーが登録済みか確認する
-	if (analisys_value(impl, buffer, ptr + 1, next_point, &value, &res)) {	// 1
-		if (value->value_type == TomlNoneValue) {
-			res.code = KEY_VALUE_ERR;
-			res.column = ptr + 1;
-			res.row = buffer->loaded_line;
-		}
-		else if (!hash_contains(table->table.hash, &key_str, &val_pair)) {	// 2
-			if (last_nochk || toml_skip_linefield(buffer->utf8s, *next_point)) {
-				hash_add(table->table.hash, &key_str, hash_value_of_pointer(value));
-				res.code = SUCCESS;
-				res.column = 0;
-				res.row = buffer->loaded_line;
-			}
-			else {
-				res.code = KEY_VALUE_ERR;
-				res.column = *next_point;
-				res.row = buffer->loaded_line;
-			}
-		}
-		else {
-			res.code = DEFINED_KEY_ERR;
-			res.column = 0;
-			res.row = buffer->loaded_line;
+	// 1. 値が取得できるか
+	// 2. 無効値であるか
+	if (!analisys_value(impl, buffer,			// 1
+						ptr + 1, next_point, &value, &res)) {
+		goto EXIT_KEY_AND_VALUE;
+	}
+	if (value->value_type == TomlNoneValue) {	// 2
+		res = toml_res_ctor(KEY_VALUE_ERR, ptr + 1, buffer->loaded_line);
+		goto EXIT_KEY_AND_VALUE;
+	}
+
+	// 改行まで確認
+	if (!last_nochk && !toml_skip_linefield(buffer->utf8s, *next_point)) {
+		res = toml_res_ctor(KEY_VALUE_ERR, *next_point, buffer->loaded_line);
+		goto EXIT_KEY_AND_VALUE;
+	}
+
+	// '.' で指定されたテーブル参照を収集する
+	//
+	// 1. テーブル参照を取得
+	// 2. エラーが有れば終了
+	// 3. 既に作成済みならばカレントを変更
+	// 4. 作成されていなければテーブルを作成し、カレントに設定
+	cur_table = table;
+	for (j = 0; j < key_ptr->length - 1; ++j) {
+		key_str = VEC_GET(const char*, key_ptr, j);
+
+		switch (search_path_table(cur_table, key_str, &new_table)) {	// 1
+		case 0:															// 2
+			res = toml_res_ctor(TABLE_REDEFINITION_ERR, 0, buffer->loaded_line);
+			*next_point = ptr;
+			goto EXIT_KEY_AND_VALUE;
+		case 1:
+			cur_table = new_table;										// 3
+			break;
+		default:
+			new_table = create_table(impl);								// 4
+			tbl_val = instance_pop(&impl->value_cache);
+			tbl_val->value_type = TomlTableValue;
+			tbl_val->value.table = (TomlTable*)new_table;
+			hash_add(cur_table->table.hash,
+					 &key_str, hash_value_of_pointer(tbl_val));
+			cur_table = new_table;
+			break;
 		}
 	}
+
+	// 最終のテーブルに値を割り当てる
+	key_str = VEC_GET(const char*, key_ptr, key_ptr->length - 1);
+	if (!hash_contains(cur_table->table.hash, &key_str, &val_pair)) {
+		hash_add(cur_table->table.hash, &key_str, hash_value_of_pointer(value));
+		res = toml_res_ctor(SUCCESS, 0, buffer->loaded_line);
+	}
+	else {
+		res = toml_res_ctor(DEFINED_KEY_ERR, 0, buffer->loaded_line);
+	}
+EXIT_KEY_AND_VALUE:
+	vec_delete(&key_ptr);
 	return res;
 }
 
 //-----------------------------------------------------------------------------
 // テーブル、テーブル配列の追加
 //-----------------------------------------------------------------------------
-/**
- * パスを走査して、テーブルを取得する。
- *
- * @param table			カレントテーブル。
- * @param key_str		キー文字列。
- * @param answer		取得したテーブル。
- * @return				0はエラー、1は作成済みのテーブル、2は新規作成
- */
-static int search_path_table(TomlTableImpl * table,
-							 const char * key_str,
-							 TomlTableImpl ** answer)
-{
-	HashPair		result;
-	TomlValue *		value;
-
-	if (hash_contains(table->table.hash, &key_str, &result)) {
-		// 指定のキーが登録済みならば、紐付く項目を返す
-		//
-		// 1. テーブルを返す
-		// 2. テーブル配列のテーブルを返す
-		// 3. テーブルの新規作成を依頼
-		value = (TomlValue*)result.value.object;
-		switch (value->value_type)
-		{
-		case TomlTableValue:			// 1
-			*answer = (TomlTableImpl*)value->value.table;
-			return 1;
-
-		case TomlTableArrayValue:		// 2
-			*answer = VEC_GET(TomlTableImpl*,
-							  value->value.tbl_array->tables,
-							  value->value.tbl_array->tables->length - 1);
-			return 1;
-
-		default:
-			return 0;
-		}
-	}
-	else {
-		return 2;						// 3
-	}
-}
-
 /**
  * テーブルを作成する。
  *
@@ -771,47 +832,25 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 										size_t point,
 										size_t * next_point)
 {
-	TomlUtf8			c;
-	size_t				i, j, nxt;
+	size_t				j, nxt;
 	TomlTableImpl *		cur_table = table;
 	TomlTableImpl *		new_table;
 	TomlValue *			value;
+	Vec *				key_ptr;
 	const char *		key_str;
 	TomlResultSummary	res;
 
 	// '.' で区切られたテーブル名を事前に収集する
-	//
-	// 1. 空白読み捨て
-	// 2. テーブル名を取得
-	// 3. 格納テーブルを作成
-	// 4. '.' があれば階層を追いかける
-	vec_clear(buffer->key_ptr);
-
-	for (i = point; i < buffer->utf8s->length; ) {
-		i = toml_skip_space(buffer->utf8s, i);				// 1
-
-		if (!toml_get_key(buffer, i, &nxt, &res)) {			// 2
-			return res;
-		}
-		i = nxt;
-
-		key_str = regist_string(impl, buffer);				// 3
-		vec_add(buffer->key_ptr, (char*)&key_str);
-
-		c = toml_get_char(buffer->utf8s, i);				// 4
-		if (c.num != '.') {
-			break;
-		}
-		i++;
+	key_ptr = vec_initialize(sizeof(char*));
+	if (!get_keys(impl, buffer, key_ptr, point, &nxt, &res)) {
+		goto EXIT_TABLE;
 	}
 
 	// テーブルが閉じられているか確認
-	if (!toml_close_table(buffer->utf8s, i)) {
-		res.code = TABLE_SYNTAX_ERR;
-		res.column = 0;
-		res.row = buffer->loaded_line;
-		*next_point = i;
-		return res;
+	if (!toml_close_table(buffer->utf8s, nxt)) {
+		res = toml_res_ctor(TABLE_SYNTAX_ERR, 0, buffer->loaded_line);
+		*next_point = nxt;
+		goto EXIT_TABLE;
 	}
 
 	// テーブルを作成する
@@ -820,16 +859,14 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 	// 2. エラーが有れば終了
 	// 3. 既に作成済みならばカレントを変更
 	// 4. 作成されていなければテーブルを作成し、カレントに設定
-	for (j = 0; j < buffer->key_ptr->length; ++j) {
-		key_str = VEC_GET(const char*, buffer->key_ptr, j);
+	for (j = 0; j < key_ptr->length; ++j) {
+		key_str = VEC_GET(const char*, key_ptr, j);
 
 		switch (search_path_table(cur_table, key_str, &new_table)) {	// 1
-		case 0:
-			res.code = TABLE_REDEFINITION_ERR;							// 2
-			res.column = 0;
-			res.row = buffer->loaded_line;
-			*next_point = i;
-			return res;
+		case 0:															// 2
+			res = toml_res_ctor(TABLE_REDEFINITION_ERR, 0, buffer->loaded_line);
+			*next_point = nxt;
+			goto EXIT_TABLE;
 		case 1:
 			cur_table = new_table;										// 3
 			break;
@@ -846,24 +883,20 @@ static TomlResultSummary analisys_table(TomlDocumentImpl * impl,
 	}
 
 	// 空白は読み捨てておく
-	i = toml_skip_space(buffer->utf8s, i);
-	*next_point = i;
+	*next_point = toml_skip_space(buffer->utf8s, nxt);
 
 	// カレントのテーブルを設定
 	impl->table = (TomlTable*)cur_table;
 	if (!cur_table->defined) {
 		cur_table->defined = 1;
-		res.code = SUCCESS;
-		res.column = 0;
-		res.row = buffer->loaded_line;
-		return res;
+		res = toml_res_ctor(SUCCESS, 0, buffer->loaded_line);
 	}
 	else {
-		res.code = DEFINED_KEY_ERR;
-		res.column = 0;
-		res.row = buffer->loaded_line;
-		return res;
+		res = toml_res_ctor(DEFINED_KEY_ERR, 0, buffer->loaded_line);
 	}
+EXIT_TABLE:
+	vec_delete(&key_ptr);
+	return res;
 }
 
 /**
@@ -882,49 +915,27 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 											  size_t point,
 											  size_t * next_point)
 {
-	TomlUtf8			c;
-	size_t				i, j, nxt;
+	size_t				j, nxt;
 	TomlTableImpl *		cur_table = table;
 	TomlTableImpl *		new_table;
 	TomlValue *			value;
+	Vec *				key_ptr = 0;
 	const char *		key_str;
 	TomlTableArray *	new_array;
 	HashPair			hash_pair;
 	TomlResultSummary	res;
 
 	// '.' で区切られたテーブル名を事前に収集する
-	//
-	// 1. 空白読み捨て
-	// 2. テーブル名を取得
-	// 3. 格納テーブルを作成
-	// 4. '.' があれば階層を追いかける
-	vec_clear(buffer->key_ptr);
-
-	for (i = point; i < buffer->utf8s->length; ) {
-		i = toml_skip_space(buffer->utf8s, i);				// 1
-
-		if (!toml_get_key(buffer, i, &nxt, &res)) {			// 2
-			return res;
-		}
-		i = nxt;
-
-		key_str = regist_string(impl, buffer);				// 3
-		vec_add(buffer->key_ptr, (char*)&key_str);
-
-		c = toml_get_char(buffer->utf8s, i);				// 4
-		if (c.num != '.') {
-			break;
-		}
-		i++;
+	key_ptr = vec_initialize(sizeof(char*));
+	if (!get_keys(impl, buffer, key_ptr, point, &nxt, &res)) {
+		goto EXIT_TABLE_ARRAY;
 	}
 
 	// テーブル配列が閉じられているか確認
-	if (!toml_close_table_array(buffer->utf8s, i)) {
-		res.code = TABLE_ARRAY_SYNTAX_ERR;
-		res.column = 0;
-		res.row = buffer->loaded_line;
-		*next_point = i;
-		return res;
+	if (!toml_close_table_array(buffer->utf8s, nxt)) {
+		res = toml_res_ctor(TABLE_ARRAY_SYNTAX_ERR, 0, buffer->loaded_line);
+		*next_point = nxt;
+		goto EXIT_TABLE_ARRAY;
 	}
 
 	// 最下層のテーブル以外のテーブル参照を収集する
@@ -933,16 +944,14 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	// 2. エラーが有れば終了
 	// 3. 既に作成済みならばカレントを変更
 	// 4. 作成されていなければテーブルを作成し、カレントに設定
-	for (j = 0; j < buffer->key_ptr->length - 1; ++j) {
-		key_str = VEC_GET(const char*, buffer->key_ptr, j);
+	for (j = 0; j < key_ptr->length - 1; ++j) {
+		key_str = VEC_GET(const char*, key_ptr, j);
 
 		switch (search_path_table(cur_table, key_str, &new_table)) {	// 1
-		case 0:
-			res.code = TABLE_REDEFINITION_ERR;							// 2
-			res.column = 0;
-			res.row = buffer->loaded_line;
-			*next_point = i;
-			return res;
+		case 0:															// 2
+			res = toml_res_ctor(TABLE_REDEFINITION_ERR, 0, buffer->loaded_line);
+			*next_point = nxt;
+			goto EXIT_TABLE_ARRAY;
 
 		case 1:
 			cur_table = new_table;										// 3
@@ -970,7 +979,7 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	// 3. 親のテーブルに最下層のテーブル名が登録されていない
 	//    3-1. テーブル配列を作成
 	//    3-2. テーブル配列にテーブルを追加、追加されたテーブルが次のカレントテーブルになる
-	key_str = VEC_GET(const char*, buffer->key_ptr, buffer->key_ptr->length - 1);	// 1
+	key_str = VEC_GET(const char*, key_ptr, key_ptr->length - 1);		// 1
 
 	if (hash_contains(cur_table->table.hash, &key_str, &hash_pair)) {	// 2-1
 		value = (TomlValue*)hash_pair.value.object;
@@ -978,12 +987,10 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 			new_table = create_table(impl);
 			vec_add(value->value.tbl_array->tables, &new_table);
 		}
-		else {
-			res.code = TABLE_REDEFINITION_ERR;							// 2-3
-			res.column = 0;
-			res.row = buffer->loaded_line;
-			*next_point = i;
-			return res;
+		else {															// 2-3
+			res = toml_res_ctor(TABLE_REDEFINITION_ERR, 0, buffer->loaded_line);
+			*next_point = nxt;
+			goto EXIT_TABLE_ARRAY;
 		}
 	}
 	else {
@@ -1002,13 +1009,13 @@ static TomlResultSummary analisys_table_array(TomlDocumentImpl * impl,
 	impl->table = (TomlTable*)new_table;
 
 	// 空白読み飛ばし
-	i = toml_skip_space(buffer->utf8s, i);
-	*next_point = i;
+	*next_point = toml_skip_space(buffer->utf8s, nxt);
 
 	// 戻り値を作成して返す
-	res.code = SUCCESS;
-	res.column = 0;
-	res.row = buffer->loaded_line;
+	res = toml_res_ctor(SUCCESS, 0, buffer->loaded_line);
+
+EXIT_TABLE_ARRAY:
+	vec_delete(&key_ptr);
 	return res;
 }
 
@@ -1052,9 +1059,6 @@ TomlResultSummary append_line(TomlDocumentImpl * impl, TomlBuffer * buffer)
 
 	case TomlKeyValueLine:				// 2
 		res = analisys_key_and_value(impl, (TomlTableImpl*)impl->table, buffer, i, &rng_end, 0);
-		if (res.code == SUCCESS && !toml_skip_linefield(buffer->utf8s, rng_end)) {
-			res.code = KEY_VALUE_ERR;
-		}
 		break;
 
 	case TomlTableLine:					// 3
@@ -1199,7 +1203,6 @@ TomlResultCode toml_read(TomlDocument * document, const char * path)
 
 		// バッファ消去
 		vec_clear(buffer->utf8s);
-		vec_clear(buffer->key_ptr);
 	} while (!toml_end_of_file(buffer));
 
 EXIT_ANALISYS:;

@@ -51,8 +51,6 @@ TomlBuffer * toml_create_buffer(const char * path)
 	if (err == 0) {
 		res->parent.utf8s = vec_initialize_set_capacity(sizeof(TomlUtf8), READ_BUF_SIZE);
 		res->parent.word_dst = vec_initialize(sizeof(char));
-		res->parent.key_ptr = vec_initialize(sizeof(char*));
-
 		return (TomlBuffer*)res;
 	}
 	else {
@@ -201,6 +199,5 @@ void toml_close_buffer(TomlBuffer * buffer)
 	fclose(impl->fp);
 	vec_delete(&impl->parent.utf8s);
 	vec_delete(&impl->parent.word_dst);
-	vec_delete(&impl->parent.key_ptr);
 	free(buffer);
 }

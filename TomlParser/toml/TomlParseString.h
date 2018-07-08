@@ -40,6 +40,18 @@ int toml_get_key(TomlBuffer * buffer, size_t point,
 		size_t * next_point, TomlResultSummary * error);
 
 /**
+ * キー文字列の取得。
+ *
+ * @param buffer		読み込み領域。
+ * @param point			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param error			エラー詳細情報（戻り値）
+ * @return				取得できたら 0以外。
+ */
+int toml_get_keys(TomlBuffer * buffer, size_t point,
+		size_t * next_point, TomlResultSummary * error);
+
+/**
  * " で囲まれた文字列を取得する。
  *
  * @param buffer		読み込み領域。

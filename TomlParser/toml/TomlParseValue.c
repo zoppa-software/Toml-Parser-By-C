@@ -64,9 +64,7 @@ static int exponent_convert(TomlBuffer * buffer,
 			// 2. 指数部を計算する
 			if (c.num == '_') {
 				if (ud) {								// 1
-					error->code = UNDERBAR_CONTINUE_ERR;
-					error->column = i;
-					error->row = buffer->loaded_line;
+					*error = toml_res_ctor(UNDERBAR_CONTINUE_ERR, i, buffer->loaded_line);
 					*next_point = i;
 					return 0;
 				}
@@ -75,9 +73,7 @@ static int exponent_convert(TomlBuffer * buffer,
 			else if (c.num >= '0' && c.num <= '9') {
 				exp_v = exp_v * 10 + (c.num - '0');		// 2
 				if (exp_v >= EXPO_MAX_RANGE) {
-					error->code = DOUBLE_VALUE_ERR;
-					error->column = i;
-					error->row = buffer->loaded_line;
+					*error = toml_res_ctor(DOUBLE_VALUE_ERR, i, buffer->loaded_line);
 					*next_point = i;
 					return 0;
 				}
@@ -91,17 +87,13 @@ static int exponent_convert(TomlBuffer * buffer,
 		// 指数値を確認する
 		// 1. 指数値が 0以下でないことを確認
 		// 2. 指数値が '0'始まりでないことを確認
-		if (exp_v <= 0) {
-			error->code = DOUBLE_VALUE_ERR;	// 1
-			error->column = i;
-			error->row = buffer->loaded_line;
+		if (exp_v <= 0) {											// 1
+			*error = toml_res_ctor(DOUBLE_VALUE_ERR, i, buffer->loaded_line);
 			*next_point = i;
 			return 0;
 		}
-		else if (toml_get_char(buffer->utf8s, point).num == '0') {
-			error->code = ZERO_NUMBER_ERR;	// 2
-			error->column = i;
-			error->row = buffer->loaded_line;
+		else if (toml_get_char(buffer->utf8s, point).num == '0') {	// 2
+			*error = toml_res_ctor(ZERO_NUMBER_ERR, i, buffer->loaded_line);
 			*next_point = i;
 			return 0;
 		}
@@ -113,9 +105,7 @@ static int exponent_convert(TomlBuffer * buffer,
 	// 小数点位置とマージ
 	exp_v -= (digit > 0 ? digit : 0);
 	if (exp_v > EXPO_MAX_RANGE || exp_v < EXPO_MIN_RANGE) {
-		error->code = DOUBLE_VALUE_RANGE_ERR;
-		error->column = i;
-		error->row = buffer->loaded_line;
+		*error = toml_res_ctor(DOUBLE_VALUE_RANGE_ERR, i, buffer->loaded_line);
 		*next_point = i;
 		return 0;
 	}
@@ -132,16 +122,16 @@ static int exponent_convert(TomlBuffer * buffer,
  * @param buffer		読み込み領域。
  * @param start			開始位置。
  * @param next_point	終了位置（戻り値）
- * @param tokenType		取得データ。
+ * @param token_type	取得データ。
  * @param error			エラー詳細情報。
  * @return				取得できたら 0以外。
  */
-static int get_number_value(int number_sign,
-						    TomlBuffer * buffer,
-						    size_t point,
-						    size_t * next_point,
-						    TomlValueType * tokenType,
-							TomlResultSummary * error)
+static int get_10number_value(int number_sign,
+						      TomlBuffer * buffer,
+						      size_t point,
+						      size_t * next_point,
+						      TomlValueType * token_type,
+							  TomlResultSummary * error)
 {
  	unsigned long long int	v = 0;
 	size_t			i, j;
@@ -165,9 +155,7 @@ static int get_number_value(int number_sign,
 		// 4. 指数部（e）を取得する
 		if (c.num == '_') {
 			if (ud) {							// 1
-				error->code = UNDERBAR_CONTINUE_ERR;
-				error->column = i;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(UNDERBAR_CONTINUE_ERR, i, buffer->loaded_line);
 				*next_point = i;
 				return 0;
 			}
@@ -185,9 +173,7 @@ static int get_number_value(int number_sign,
 				}
 			}
 			else {								// 2-1
-				error->code = INTEGER_VALUE_RANGE_ERR;
-				error->column = i;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
 				*next_point = i;
 				return 0;
 			}
@@ -198,9 +184,7 @@ static int get_number_value(int number_sign,
 				digit = 0;
 			}
 			else {
-				error->code = (ld_zero ? MULTI_DECIMAL_ERR : NO_LEADING_ZERO_ERR);
-				error->column = i;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor((ld_zero ? MULTI_DECIMAL_ERR : NO_LEADING_ZERO_ERR), i, buffer->loaded_line);
 				*next_point = i;
 				return 0;
 			}
@@ -217,7 +201,7 @@ static int get_number_value(int number_sign,
 
 	// 一文字の数値もなければ None値を返す
 	if (i == point) {
-		*tokenType = TomlNoneValue;
+		*token_type = TomlNoneValue;
 		*next_point = i;
 		return 1;
 	}
@@ -235,7 +219,7 @@ static int get_number_value(int number_sign,
 		// 1. 整数値を返すことを指定
 		// 2. 負の整数変換
 		// 3. 正の整数変換
-		*tokenType = TomlIntegerValue;			// 1
+		*token_type = TomlIntegerValue;			// 1
 		if (number_sign) {
 			if (v <= LLONG_MAX) {				// 2
 				buffer->integer = -((long long int)v);
@@ -243,9 +227,7 @@ static int get_number_value(int number_sign,
 			else {
 				buffer->integer = (long long int)v;
 				if (buffer->integer != LLONG_MIN) {
-					error->code = INTEGER_VALUE_RANGE_ERR;
-					error->column = i;
-					error->row = buffer->loaded_line;
+					*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
 					return 0;
 				}
 			}
@@ -255,18 +237,14 @@ static int get_number_value(int number_sign,
 				buffer->integer = (long long int)v;
 			}
 			else {
-				error->code = INTEGER_VALUE_RANGE_ERR;
-				error->column = i;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
 				return 0;
 			}
 		}
 	}
 	else {
 		if (digit >= 0 && !lst_zero) {
-			error->code = NO_LAST_ZERO_ERR;
-			error->column = i;
-			error->row = buffer->loaded_line;
+			*error = toml_res_ctor(NO_LAST_ZERO_ERR, i, buffer->loaded_line);
 			return 0;
 		}
 
@@ -277,7 +255,7 @@ static int get_number_value(int number_sign,
 		// 2. 正の指数なら積算
 		// 3. 0の指数なら使用しない
 		// 4. 値を保持
-		*tokenType = TomlFloatValue;			// 1
+		*token_type = TomlFloatValue;			// 1
 		if (exp_v < 0) {
 			double abs_e = 1;					// 2
 			for (j = 0; j < abs(exp_v); ++j) {
@@ -299,14 +277,288 @@ static int get_number_value(int number_sign,
 			buffer->float_number = (number_sign ? (double)-dv : (double)dv);
 		}
 		else {
-			error->code = DOUBLE_VALUE_RANGE_ERR;
-			error->column = i;
-			error->row = buffer->loaded_line;
+			*error = toml_res_ctor(DOUBLE_VALUE_RANGE_ERR, i, buffer->loaded_line);
 			return 0;
 		}
 	}
 
 	return 1;
+}
+
+/**
+ * 数値（16進数）を取得する。
+ *
+ * @param number_sign	符号。
+ * @param buffer		読み込み領域。
+ * @param start			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param token_type	取得データ。
+ * @param error			エラー詳細情報。
+ * @return				取得できたら 0以外。
+ */
+static int get_16number_value(TomlBuffer * buffer,
+						      size_t point,
+						      size_t * next_point,
+						      TomlValueType * token_type,
+							  TomlResultSummary * error)
+{
+ 	unsigned long long int	v = 0;
+	size_t			i;
+	int				ud = 0;
+	TomlUtf8		c;
+
+	// 数値を取得する
+	for (i = point; i < buffer->utf8s->length; ++i) {
+		// 一文字取得する
+		c = toml_get_char(buffer->utf8s, i);
+
+		// 1. '_'の連続の判定
+		// 2. 数値の計算をする
+		//    2-1. 数値の有効範囲を超えるならばエラー
+		if (c.num == '_') {
+			if (ud) {							// 1
+				*error = toml_res_ctor(UNDERBAR_CONTINUE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 1;
+		}
+		else if (c.num >= '0' && c.num <= '9') {
+			if (v < ULLONG_MAX / 16) {			// 2
+				v = v * 16 + (c.num - '0');
+			}
+			else {								// 2-1
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 0;
+		}
+		else if (c.num >= 'A' && c.num <= 'F') {
+			if (v < ULLONG_MAX / 16) {			// 2
+				v = v * 16 + (c.num - 'A') + 10;
+			}
+			else {								// 2-1
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 0;
+		}
+		else if (c.num >= 'a' && c.num <= 'f') {
+			if (v < ULLONG_MAX / 16) {			// 2
+				v = v * 16 + (c.num - 'a') + 10;
+			}
+			else {								// 2-1
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 0;
+		}
+		else {
+			break;
+		}
+	}
+
+	// 一文字の数値もなければ None値を返す
+	*next_point = i;
+	if (i == point) {
+		*token_type = TomlNoneValue;
+		*next_point = i;
+		return 1;
+	}
+
+	if (v <= LLONG_MAX) {
+		*token_type = TomlIntegerValue;
+		buffer->integer = (long long int)v;
+		return 1;
+	}
+	else {
+		*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i , buffer->loaded_line);
+		return 0;
+	}
+}
+
+/**
+ * 数値（8進数）を取得する。
+ *
+ * @param number_sign	符号。
+ * @param buffer		読み込み領域。
+ * @param start			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param token_type	取得データ。
+ * @param error			エラー詳細情報。
+ * @return				取得できたら 0以外。
+ */
+static int get_8number_value(TomlBuffer * buffer,
+						     size_t point,
+						     size_t * next_point,
+						     TomlValueType * token_type,
+							 TomlResultSummary * error)
+{
+ 	unsigned long long int	v = 0;
+	size_t			i;
+	int				ud = 0;
+	TomlUtf8		c;
+
+	// 数値を取得する
+	for (i = point; i < buffer->utf8s->length; ++i) {
+		// 一文字取得する
+		c = toml_get_char(buffer->utf8s, i);
+
+		// 1. '_'の連続の判定
+		// 2. 数値の計算をする
+		//    2-1. 数値の有効範囲を超えるならばエラー
+		if (c.num == '_') {
+			if (ud) {							// 1
+				*error = toml_res_ctor(UNDERBAR_CONTINUE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 1;
+		}
+		else if (c.num >= '0' && c.num <= '7') {
+			if (v < ULLONG_MAX / 8) {			// 2
+				v = v * 8 + (c.num - '0');
+			}
+			else {								// 2-1
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 0;
+		}
+		else {
+			break;
+		}
+	}
+
+	// 一文字の数値もなければ None値を返す
+	*next_point = i;
+	if (i == point) {
+		*token_type = TomlNoneValue;
+		return 1;
+	}
+
+	if (v <= LLONG_MAX) {
+		*token_type = TomlIntegerValue;
+		buffer->integer = (long long int)v;
+		return 1;
+	}
+	else {
+		*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+		return 0;
+	}
+}
+
+/**
+ * 数値（2進数）を取得する。
+ *
+ * @param number_sign	符号。
+ * @param buffer		読み込み領域。
+ * @param start			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param token_type	取得データ。
+ * @param error			エラー詳細情報。
+ * @return				取得できたら 0以外。
+ */
+static int get_2number_value(TomlBuffer * buffer,
+						     size_t point,
+						     size_t * next_point,
+						     TomlValueType * token_type,
+							 TomlResultSummary * error)
+{
+ 	unsigned long long int	v = 0;
+	size_t			i;
+	int				ud = 0;
+	TomlUtf8		c;
+
+	// 数値を取得する
+	for (i = point; i < buffer->utf8s->length; ++i) {
+		// 一文字取得する
+		c = toml_get_char(buffer->utf8s, i);
+
+		// 1. '_'の連続の判定
+		// 2. 数値の計算をする
+		//    2-1. 数値の有効範囲を超えるならばエラー
+		if (c.num == '_') {
+			if (ud) {							// 1
+				*error = toml_res_ctor(UNDERBAR_CONTINUE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 1;
+		}
+		else if (c.num >= '0' && c.num <= '1') {
+			if (v < ULLONG_MAX / 2) {			// 2
+				v = v * 2 + (c.num - '0');
+			}
+			else {								// 2-1
+				*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+				*next_point = i;
+				return 0;
+			}
+			ud = 0;
+		}
+		else {
+			break;
+		}
+	}
+
+	// 一文字の数値もなければ None値を返す
+	*next_point = i;
+	if (i == point) {
+		*token_type = TomlNoneValue;
+		return 1;
+	}
+
+	if (v <= LLONG_MAX) {
+		*token_type = TomlIntegerValue;
+		buffer->integer = (long long int)v;
+		return 1;
+	}
+	else {
+		*error = toml_res_ctor(INTEGER_VALUE_RANGE_ERR, i, buffer->loaded_line);
+		return 0;
+	}
+}
+
+/**
+ * 数値（整数／実数）を取得する。
+ *
+ * @param number_sign	符号。
+ * @param buffer		読み込み領域。
+ * @param start			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param token_type	取得データ。
+ * @param error			エラー詳細情報。
+ * @return				取得できたら 0以外。
+ */
+static int get_number_value(int number_sign,
+							TomlBuffer * buffer,
+							size_t point,
+							size_t * next_point,
+							TomlValueType * token_type,
+							TomlResultSummary * error)
+{
+	if (number_sign == 0 &&
+		buffer->utf8s->length - point >= 3 &&
+		toml_get_char(buffer->utf8s, point).num == '0') {
+		switch (toml_get_char(buffer->utf8s, point + 1).num)
+		{
+		case 'x':
+			return get_16number_value(buffer, point + 2, next_point, token_type, error);
+		case 'o':
+			return get_8number_value(buffer, point + 2, next_point, token_type, error);
+		case 'b':
+			return get_2number_value(buffer, point + 2, next_point, token_type, error);
+		default:
+			break;
+		}
+	}
+	return get_10number_value(number_sign, buffer,
+					point, next_point, token_type, error);
 }
 
 //-----------------------------------------------------------------------------
@@ -384,9 +636,7 @@ static int convert_time_format(TomlBuffer * buffer,
 		buffer->date.second = (unsigned char)second;
 	}
 	else {
-		error->code = DATE_FORMAT_ERR;
-		error->column = point + 3;
-		error->row = buffer->loaded_line;
+		*error = toml_res_ctor(DATE_FORMAT_ERR, point + 3, buffer->loaded_line);
 		*next_point = point;
 		return 0;
 	}
@@ -433,10 +683,8 @@ static int convert_time_format(TomlBuffer * buffer,
 			*next_point = point + 6;
 			return 1;
 		}
-		else {
-			error->code = DATE_FORMAT_ERR;						// 2-2
-			error->column = point;
-			error->row = buffer->loaded_line;
+		else {													// 2-2
+			*error = toml_res_ctor(DATE_FORMAT_ERR, point, buffer->loaded_line);
 			*next_point = point;
 			return 0;
 		}
@@ -476,10 +724,8 @@ static int convert_date_format(TomlBuffer * buffer,
 		buffer->date.month = (unsigned char)month;
 		buffer->date.day = (unsigned char)day;
 	}
-	else {
-		error->code = DATE_FORMAT_ERR;				// 2
-		error->column = point + 5;
-		error->row = buffer->loaded_line;
+	else {											// 2
+		*error = toml_res_ctor(DATE_FORMAT_ERR, point + 5, buffer->loaded_line);
 		*next_point = point;
 		return 0;
 	}
@@ -487,8 +733,8 @@ static int convert_date_format(TomlBuffer * buffer,
 	// 'T' の指定がなければ日にちのみ、終了
 	c = toml_get_char(buffer->utf8s, point + 10);
 	*next_point = point + 10;
-	if (c.num != 'T' && c.num != 't' &&
-		(c.num == ' ' || c.num == '\t' || c.num == '#')) {
+	if (c.num != 'T' && c.num != 't' && c.num != ' ' &&
+		(c.num == '\t' || c.num == '#' || c.num == '\r' || c.num == '\n')) {
 		return 1;
 	}
 
@@ -497,10 +743,11 @@ static int convert_date_format(TomlBuffer * buffer,
 		toml_get_char(buffer->utf8s, point + 13).num == ':') {
 		return convert_time_format(buffer, point + 11, next_point, hour, error);
 	}
+	else if (c.num == ' ') {
+		return 1;
+	}
 	else {
-		error->code = DATE_FORMAT_ERR;
-		error->column = point + 11;
-		error->row = buffer->loaded_line;
+		*error = toml_res_ctor(DATE_FORMAT_ERR, point + 11, buffer->loaded_line);
 		*next_point = point;
 		return 0;
 	}
@@ -558,23 +805,19 @@ static int get_number_or_date_value(TomlBuffer * buffer,
 }
 
 /**
- * 数値（整数／実数／日付）を取得する。
+ * 数値（定数）を取得する。
  *
  * @param buffer		読み込み領域。
  * @param point			開始位置。
  * @param next_point	終了位置（戻り値）
- * @param tokenType		取得データ。
- * @param error			エラー詳細情報。
+ * @param token_type	取得データ。
  * @return				取得できたら 0以外。
  */
-int toml_convert_value(TomlBuffer * buffer,
-					   size_t point,
-					   size_t * next_point,
-					   TomlValueType * tokenType,
-					   TomlResultSummary * error)
+static int analisys_keyword(TomlBuffer * buffer,
+							size_t point,
+							size_t * next_point,
+							TomlValueType * token_type)
 {
-	TomlUtf8		c;
-
 	// 真偽値（偽）を返す
 	if (buffer->utf8s->length - point >= 5) {
 		if (toml_get_char(buffer->utf8s, point + 4).num == 'e' &&
@@ -584,7 +827,7 @@ int toml_convert_value(TomlBuffer * buffer,
 			toml_get_char(buffer->utf8s, point).num == 'f') {
 			buffer->boolean = 0;
 			*next_point = point + 5;
-			*tokenType = TomlBooleanValue;
+			*token_type = TomlBooleanValue;
 			return 1;
 		}
 	}
@@ -597,9 +840,110 @@ int toml_convert_value(TomlBuffer * buffer,
 			toml_get_char(buffer->utf8s, point).num == 't') {
 			buffer->boolean = 1;
 			*next_point = point + 4;
-			*tokenType = TomlBooleanValue;
+			*token_type = TomlBooleanValue;
 			return 1;
 		}
+	}
+
+	// 無限値を返す
+	if (buffer->utf8s->length - point >= 3) {
+		if (toml_get_char(buffer->utf8s, point + 2).num == 'f' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'n' &&
+			toml_get_char(buffer->utf8s, point).num == 'i') {
+			buffer->float_number = INFINITY;
+			*next_point = point + 3;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+
+	// 正の無限値を返す
+	if (buffer->utf8s->length - point >= 4) {
+		if (toml_get_char(buffer->utf8s, point + 3).num == 'f' &&
+			toml_get_char(buffer->utf8s, point + 2).num == 'n' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'i' &&
+			toml_get_char(buffer->utf8s, point).num == '+') {
+			buffer->float_number = INFINITY;
+			*next_point = point + 4;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+
+	// 負の無限値を返す
+	if (buffer->utf8s->length - point >= 4) {
+		if (toml_get_char(buffer->utf8s, point + 3).num == 'f' &&
+			toml_get_char(buffer->utf8s, point + 2).num == 'n' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'i' &&
+			toml_get_char(buffer->utf8s, point).num == '-') {
+			buffer->float_number = -INFINITY;
+			*next_point = point + 4;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+
+	// 非数値を返す
+	if (buffer->utf8s->length - point >= 3) {
+		if (toml_get_char(buffer->utf8s, point + 2).num == 'n' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'a' &&
+			toml_get_char(buffer->utf8s, point).num == 'n') {
+			buffer->float_number = NAN;
+			*next_point = point + 3;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+
+	// 正の非数値を返す
+	if (buffer->utf8s->length - point >= 4) {
+		if (toml_get_char(buffer->utf8s, point + 3).num == 'n' &&
+			toml_get_char(buffer->utf8s, point + 2).num == 'a' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'n' &&
+			toml_get_char(buffer->utf8s, point).num == '+') {
+			buffer->float_number = NAN;
+			*next_point = point + 4;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+
+	// 負の非数値を返す
+	if (buffer->utf8s->length - point >= 4) {
+		if (toml_get_char(buffer->utf8s, point + 3).num == 'n' &&
+			toml_get_char(buffer->utf8s, point + 2).num == 'a' &&
+			toml_get_char(buffer->utf8s, point + 1).num == 'n' &&
+			toml_get_char(buffer->utf8s, point).num == '-') {
+			buffer->float_number = -NAN;
+			*next_point = point + 4;
+			*token_type = TomlFloatValue;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/**
+ * 数値（整数／実数／日付）を取得する。
+ *
+ * @param buffer		読み込み領域。
+ * @param point			開始位置。
+ * @param next_point	終了位置（戻り値）
+ * @param tokenType		取得データ。
+ * @param error			エラー詳細情報。
+ * @return				取得できたら 0以外。
+ */
+int toml_convert_value(TomlBuffer * buffer,
+					   size_t point,
+					   size_t * next_point,
+					   TomlValueType * token_type,
+					   TomlResultSummary * error)
+{
+	TomlUtf8		c;
+
+	// 正の非数値を返す
+	if (analisys_keyword(buffer, point, next_point, token_type)) {
+		return 1;
 	}
 
 	// 複数ライン文字列を返す
@@ -609,7 +953,7 @@ int toml_convert_value(TomlBuffer * buffer,
 			toml_get_char(buffer->utf8s, point + 1).num == '"' &&
 			toml_get_char(buffer->utf8s, point).num == '"') {
 			if (toml_get_multi_string_value(buffer, point + 3, next_point, error)) {
-				*tokenType = TomlStringValue;
+				*token_type = TomlStringValue;
 				return 1;
 			}
 			else {
@@ -622,7 +966,7 @@ int toml_convert_value(TomlBuffer * buffer,
 			toml_get_char(buffer->utf8s, point + 1).num == '\'' &&
 			toml_get_char(buffer->utf8s, point).num == '\'') {
 			if (toml_get_multi_literal_string_value(buffer, point + 3, next_point, error)) {
-				*tokenType = TomlStringValue;
+				*token_type = TomlStringValue;
 				return 1;
 			}
 			else {
@@ -639,7 +983,7 @@ int toml_convert_value(TomlBuffer * buffer,
 		case '"':
 			// 文字列を取得する
 			if (toml_get_string_value(buffer, point + 1, next_point, error)) {
-				*tokenType = TomlStringValue;
+				*token_type = TomlStringValue;
 				return 1;
 			}
 			else {
@@ -649,7 +993,7 @@ int toml_convert_value(TomlBuffer * buffer,
 		case '\'':
 			// リテラル文字列を取得する
 			if (toml_get_literal_string_value(buffer, point + 1, next_point, error)) {
-				*tokenType = TomlStringValue;
+				*token_type = TomlStringValue;
 				return 1;
 			}
 			else {
@@ -664,7 +1008,7 @@ int toml_convert_value(TomlBuffer * buffer,
 		case '+':
 			// 数値を取得する
 			if (get_number_value(0, buffer, point + 1,
-								 next_point, tokenType, error)) {
+								 next_point, token_type, error)) {
 				return 1;
 			}
 			else {
@@ -677,7 +1021,7 @@ int toml_convert_value(TomlBuffer * buffer,
 			// 1. 整数値の符号を逆転させる
 			// 2. 実数値の符号を逆転させる
 			if (get_number_value(1, buffer, point + 1,
-								 next_point, tokenType, error)) {
+								 next_point, token_type, error)) {
 				return 1;
 			}
 			else {
@@ -688,14 +1032,12 @@ int toml_convert_value(TomlBuffer * buffer,
 		default:
 			// 日付／数値を取得する
 			return get_number_or_date_value(buffer, point,
-									next_point, tokenType, error);
+									next_point, token_type, error);
 		}
 	}
 	else {
 		// 値が取得できなかった
-		error->code = INVALID_NAME_ERR;
-		error->column = point;
-		error->row = buffer->loaded_line;
+		*error = toml_res_ctor(INVALID_NAME_ERR, point, buffer->loaded_line);
 		*next_point = point;
 		return 0;
 	}

@@ -62,9 +62,7 @@ static int append_unicode(TomlBuffer * buffer,
 			val |= 10 + c.num - 'A';
 		}
 		else {
-			error->code = UNICODE_DEFINE_ERR;
-			error->column = i;
-			error->row = buffer->loaded_line;
+			*error = toml_res_ctor(UNICODE_DEFINE_ERR, i, buffer->loaded_line);
 			return 0;
 		}
 	}
@@ -185,9 +183,7 @@ static int append_escape_char(TomlBuffer * buffer,
 			i += 9;
 			break;
 		default:
-			error->code = INVALID_ESCAPE_CHAR_ERR;
-			error->column = i;
-			error->row = buffer->loaded_line;
+			*error = toml_res_ctor(INVALID_ESCAPE_CHAR_ERR, i, buffer->loaded_line);
 			return 0;
 		}
 	}
@@ -299,9 +295,7 @@ int toml_get_key(TomlBuffer * buffer,
 			buffer->word_dst->length <= 0) {
 			if (!toml_get_string_value(buffer, i + 1, next_point, error) ||
 				buffer->word_dst->length < 1) {
-				error->code = KEY_ANALISYS_ERR;
-				error->column = i;
-				error->row = buffer->loaded_line;
+				*error = toml_res_ctor(KEY_ANALISYS_ERR, i, buffer->loaded_line);
 				return 0;
 			}
 			break;
@@ -317,9 +311,7 @@ int toml_get_key(TomlBuffer * buffer,
 		return 1;
 	}
 	else {
-		error->code = KEY_ANALISYS_ERR;
-		error->column = i;
-		error->row = buffer->loaded_line;
+		*error = toml_res_ctor(KEY_ANALISYS_ERR, i, buffer->loaded_line);
 		return 0;
 	}
 }
@@ -373,9 +365,7 @@ int toml_get_string_value(TomlBuffer * buffer,
 	}
 
 	// " で終了できなかったためエラー
-	error->code = QUOAT_STRING_ERR;
-	error->column = i;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(QUOAT_STRING_ERR, i, buffer->loaded_line);
 	*next_point = i;
 	return 0;
 }
@@ -422,9 +412,7 @@ int toml_get_literal_string_value(TomlBuffer * buffer,
 	}
 
 	// ' で終了できなかったためエラー
-	error->code = LITERAL_STRING_ERR;
-	error->column = i;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(LITERAL_STRING_ERR, i, buffer->loaded_line);
 	*next_point = i;
 	return 0;
 }
@@ -529,9 +517,7 @@ int toml_get_multi_string_value(TomlBuffer * buffer,
 	} while (!eof);
 
 	// " で終了できなかったためエラー
-	error->code = MULTI_QUOAT_STRING_ERR;
-	error->column = i;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(MULTI_QUOAT_STRING_ERR, i, buffer->loaded_line);
 	*next_point = i;
 	return 0;
 }
@@ -594,9 +580,7 @@ int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 	} while (!eof);
 
 	// " で終了できなかったためエラー
-	error->code = MULTI_LITERAL_STRING_ERR;
-	error->column = i;
-	error->row = buffer->loaded_line;
+	*error = toml_res_ctor(MULTI_LITERAL_STRING_ERR, i, buffer->loaded_line);
 	*next_point = i;
 	return 0;
 }

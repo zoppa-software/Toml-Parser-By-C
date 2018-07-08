@@ -76,9 +76,18 @@ int main(int argc, const char ** argv)
 	suc_tml("table-array-nest.toml");
 	suc_tml("table-array-one.toml");
 	suc_tml("inline.toml");
+	suc_tml("dottrd-keys.toml");
+	suc_tml("float_no_number.toml");	
+	suc_tml("number-formated-decimal.toml");
 #endif
 
 #if 1
+	test_tml("number_2_err.toml");
+	test_tml("number_2_1_err.toml");
+	test_tml("number_8_err.toml");
+	test_tml("number_8_1_err.toml");
+	test_tml("number_16_err.toml");
+	test_tml("number_16_1_err.toml");
 	test_tml("array-mixed-types-arrays-and-ints.toml");
 	test_tml("array-mixed-types-ints-and-floats.toml");
 	test_tml("array-mixed-types-strings-and-ints.toml");

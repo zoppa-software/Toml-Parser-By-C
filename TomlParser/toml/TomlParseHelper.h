@@ -100,4 +100,14 @@ int toml_close_table(Vec * utf8s, size_t i);
  */
 int toml_close_table_array(Vec * utf8s, size_t i);
 
+/**
+ * 結果情報を構築する。
+ *
+ * @param code			結果値。
+ * @param column		文字位置。
+ * @param row			行位置。
+ * @return				結果情報。
+ */
+TomlResultSummary toml_res_ctor(TomlResultCode code, size_t column, size_t row);
+
 #endif

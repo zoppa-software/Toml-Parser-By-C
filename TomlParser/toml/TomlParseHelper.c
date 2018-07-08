@@ -211,3 +211,23 @@ int toml_close_table_array(Vec * utf8s, size_t i)
 	c = toml_get_char(utf8s, i++);
 	return (c.num == '#' || c.num == '\r' || c.num == '\n' || c.num == 0);
 }
+
+/**
+ * 結果情報を構築する。
+ *
+ * @param code			結果値。
+ * @param column		文字位置。
+ * @param row			行位置。
+ * @return				結果情報。
+ */
+TomlResultSummary toml_res_ctor(TomlResultCode code,
+								size_t column,
+								size_t row)
+{
+	TomlResultSummary res;
+	memset(&res, 0, sizeof(res));
+	res.code = code;
+	res.column = column;
+	res.row = row;
+	return res;
+}

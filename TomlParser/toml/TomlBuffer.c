@@ -144,6 +144,7 @@ void toml_read_buffer(TomlBuffer * buffer)
 		if (impl->rest_buf > 0) {
 			maxlen = impl->rest_buf;
 			impl->rest_buf = 0;
+			impl->readed = 0;
 		}
 		else {
 			maxlen = toml_read_from_file(impl);
@@ -159,7 +160,7 @@ void toml_read_buffer(TomlBuffer * buffer)
 			// 1. 文字数分取り込んでいるためバッファに書き込む
 			//    1-1. 改行ならば取り込み中止
 			// 2. 文字数取り込めていないため、次を取り込む
-			if (i + skip < READ_BUF_SIZE) {
+			if (i + skip <= READ_BUF_SIZE) {
 				memset(&utf8, 0, sizeof(utf8));		// 1
 				memcpy(utf8.ch, ptr, skip);
 				vec_add(impl->parent.utf8s, utf8.ch);

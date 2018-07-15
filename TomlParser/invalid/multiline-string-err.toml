@@ -1,0 +1,12 @@
+equivalent_two = """
+The quick brown \  
+
+
+  fox jumps over \
+    the lazy dog."""
+
+equivalent_three = """\ # ÉGÉâÅ[
+       The quick brown \
+       fox jumps over \
+       the lazy dog.\
+       """

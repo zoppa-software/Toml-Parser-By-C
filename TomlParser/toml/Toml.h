@@ -28,7 +28,7 @@
 #include "../helper/Vec.h"
 
 /** UTF8の文字数。 */
-#define UTF8_CHARCTOR_SIZE	6
+#define UTF8_CHARCTER_SIZE	6
 
 /**
  * 値の種類を表す列挙。
@@ -184,7 +184,7 @@ typedef struct _TomlDate
 typedef union _TomlUtf8
 {
 	// 文字バイト
-	char	ch[UTF8_CHARCTOR_SIZE];
+	char	ch[UTF8_CHARCTER_SIZE];
 
 	// 数値
 	unsigned int	num;

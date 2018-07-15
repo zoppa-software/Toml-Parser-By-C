@@ -82,6 +82,7 @@ int main(int argc, const char ** argv)
 #endif
 
 #if 1
+	test_tml("multiline-string-err.toml");
 	test_tml("number_2_err.toml");
 	test_tml("number_2_1_err.toml");
 	test_tml("number_8_err.toml");

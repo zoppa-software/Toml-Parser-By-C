@@ -76,24 +76,24 @@ int toml_end_of_file(TomlBuffer * buffer)
 /**
  * 次に進めるバイト数を取得する（UTF8用）
  *
- * @param caractor	文字。
+ * @param character	文字。
  * @return			進めるバイト数。
  */
-static size_t toml_skip_func(unsigned char caractor)
+static size_t toml_skip_func(unsigned char character)
 {
-	if ((caractor & 0xfc) == 0xfc) {
+	if ((character & 0xfc) == 0xfc) {
 		return 6;
 	}
-	else if ((caractor & 0xf8) == 0xf8) {
+	else if ((character & 0xf8) == 0xf8) {
 		return 5;
 	}
-	else if ((caractor & 0xf0) == 0xf0) {
+	else if ((character & 0xf0) == 0xf0) {
 		return 4;
 	}
-	else if ((caractor & 0xe0) == 0xe0) {
+	else if ((character & 0xe0) == 0xe0) {
 		return 3;
 	}
-	else if ((caractor & 0xc0) == 0xc0) {
+	else if ((character & 0xc0) == 0xc0) {
 		return 2;
 	}
 	else {

@@ -61,7 +61,7 @@ const char * toml_err_message(Vec *	utf8s, Vec * word_dst)
 
 	for (i = 0; i < utf8s->length; ++i) {
 		c = toml_get_char(utf8s, i);
-		for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
+		for (j = 0; j < UTF8_CHARCTER_SIZE && c.ch[j] != 0; ++j) {
 			vec_add(word_dst, c.ch + j);
 		}
 	}

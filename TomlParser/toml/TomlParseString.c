@@ -357,7 +357,7 @@ int toml_get_string_value(TomlBuffer * buffer,
 
 		default:
 			// 上記以外は普通の文字として取得
-			for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
+			for (j = 0; j < UTF8_CHARCTER_SIZE && c.ch[j] != 0; ++j) {
 				vec_add(buffer->word_dst, c.ch + j);
 			}
 			break;
@@ -404,7 +404,7 @@ int toml_get_literal_string_value(TomlBuffer * buffer,
 
 		default:
 			// 上記以外は普通の文字として取得
-			for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
+			for (j = 0; j < UTF8_CHARCTER_SIZE && c.ch[j] != 0; ++j) {
 				vec_add(buffer->word_dst, c.ch + j);
 			}
 			break;
@@ -464,6 +464,7 @@ int toml_get_multi_string_value(TomlBuffer * buffer,
 				else {
 					append_char(buffer->word_dst, '"');
 				}
+				break;
 
 			case '\\':
 				// \のエスケープ文字判定
@@ -491,7 +492,7 @@ int toml_get_multi_string_value(TomlBuffer * buffer,
 				// 上記以外は普通の文字として取得
 				if (c.num > 0x1f) {
 					skip_space = 0;
-					for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
+					for (j = 0; j < UTF8_CHARCTER_SIZE && c.ch[j] != 0; ++j) {
 						vec_add(buffer->word_dst, c.ch + j);
 					}
 				}
@@ -570,7 +571,7 @@ int toml_get_multi_literal_string_value(TomlBuffer * buffer,
 
 			default:
 				// 上記以外は普通の文字として取得
-				for (j = 0; j < UTF8_CHARCTOR_SIZE && c.ch[j] != 0; ++j) {
+				for (j = 0; j < UTF8_CHARCTER_SIZE && c.ch[j] != 0; ++j) {
 					vec_add(buffer->word_dst, c.ch + j);
 				}
 				break;

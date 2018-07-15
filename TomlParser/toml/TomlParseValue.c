@@ -140,7 +140,7 @@ static int get_10number_value(int number_sign,
 	int				digit = -1;
 	int				expo = -1;
 	int				exp_v = -1;
-	double long		dv;
+	long double 	dv;
 	int				ld_zero = 0, lst_zero = 0;
 
 	// 仮数部を取得する
@@ -251,10 +251,10 @@ static int get_10number_value(int number_sign,
 		// 実数値を取得する
 		//
 		// 1. 実数値を返すことを指定
-		// 1. 負の指数なら除算
-		// 2. 正の指数なら積算
-		// 3. 0の指数なら使用しない
-		// 4. 値を保持
+		// 2. 負の指数なら除算
+		// 3. 正の指数なら積算
+		// 4. 0の指数なら使用しない
+		// 5. 値を保持
 		*token_type = TomlFloatValue;			// 1
 		if (exp_v < 0) {
 			double abs_e = 1;					// 2
@@ -324,7 +324,7 @@ static int get_16number_value(TomlBuffer * buffer,
 			ud = 1;
 		}
 		else if (c.num >= '0' && c.num <= '9') {
-			if (v < ULLONG_MAX / 16) {			// 2
+			if (v <= ULLONG_MAX / 16) {			// 2
 				v = v * 16 + (c.num - '0');
 			}
 			else {								// 2-1
@@ -335,7 +335,7 @@ static int get_16number_value(TomlBuffer * buffer,
 			ud = 0;
 		}
 		else if (c.num >= 'A' && c.num <= 'F') {
-			if (v < ULLONG_MAX / 16) {			// 2
+			if (v <= ULLONG_MAX / 16) {			// 2
 				v = v * 16 + (c.num - 'A') + 10;
 			}
 			else {								// 2-1
@@ -346,7 +346,7 @@ static int get_16number_value(TomlBuffer * buffer,
 			ud = 0;
 		}
 		else if (c.num >= 'a' && c.num <= 'f') {
-			if (v < ULLONG_MAX / 16) {			// 2
+			if (v <= ULLONG_MAX / 16) {			// 2
 				v = v * 16 + (c.num - 'a') + 10;
 			}
 			else {								// 2-1
@@ -369,7 +369,7 @@ static int get_16number_value(TomlBuffer * buffer,
 		return 1;
 	}
 
-	if (v <= LLONG_MAX) {
+	if (v <= ULLONG_MAX) {
 		*token_type = TomlIntegerValue;
 		buffer->integer = (long long int)v;
 		return 1;
@@ -419,7 +419,7 @@ static int get_8number_value(TomlBuffer * buffer,
 			ud = 1;
 		}
 		else if (c.num >= '0' && c.num <= '7') {
-			if (v < ULLONG_MAX / 8) {			// 2
+			if (v <= ULLONG_MAX / 8) {			// 2
 				v = v * 8 + (c.num - '0');
 			}
 			else {								// 2-1
@@ -441,7 +441,7 @@ static int get_8number_value(TomlBuffer * buffer,
 		return 1;
 	}
 
-	if (v <= LLONG_MAX) {
+	if (v <= ULLONG_MAX) {
 		*token_type = TomlIntegerValue;
 		buffer->integer = (long long int)v;
 		return 1;
@@ -491,7 +491,7 @@ static int get_2number_value(TomlBuffer * buffer,
 			ud = 1;
 		}
 		else if (c.num >= '0' && c.num <= '1') {
-			if (v < ULLONG_MAX / 2) {			// 2
+			if (v <= ULLONG_MAX / 2) {			// 2
 				v = v * 2 + (c.num - '0');
 			}
 			else {								// 2-1
@@ -513,7 +513,7 @@ static int get_2number_value(TomlBuffer * buffer,
 		return 1;
 	}
 
-	if (v <= LLONG_MAX) {
+	if (v <= ULLONG_MAX) {
 		*token_type = TomlIntegerValue;
 		buffer->integer = (long long int)v;
 		return 1;

@@ -12,7 +12,7 @@
 #include "Toml.h"
 
 /** 読み込みバッファサイズ。 */
-#define READ_BUF_SIZE	1024
+#define READ_BUF_SIZE	4096
 
 /**
  * 読み込み領域。
